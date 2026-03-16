@@ -15,8 +15,8 @@ const PayerDashboard = ({ onInitialize, isActive }: PayerDashboardProps) => {
   const handleSubmit = () => {
     const amt = parseFloat(amount);
     const dur = parseInt(duration);
-    if (amt > 0 && dur > 0) {
-      onInitialize({ amount: amt, interval, duration: dur });
+    if (amt > 0 && dur > 0 && receiver.trim()) {
+      onInitialize({ amount: amt, interval, duration: dur, receiver: receiver.trim() });
     }
   };
 
