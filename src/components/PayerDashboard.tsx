@@ -32,6 +32,18 @@ const PayerDashboard = ({ onInitialize, isActive }: PayerDashboardProps) => {
 
       <div className="space-y-5">
         <div>
+          <label className="label-micro mb-2 block">DESTINATION_WALLET</label>
+          <input
+            type="text"
+            value={receiver}
+            onChange={(e) => setReceiver(e.target.value)}
+            placeholder="0x..."
+            disabled={isActive}
+            className="w-full bg-secondary border border-border px-4 py-3 font-mono-display text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary rounded-none disabled:opacity-40"
+          />
+        </div>
+
+        <div>
           <label className="label-micro mb-2 block">TOTAL_AMOUNT (USDC)</label>
           <input
             type="number"
