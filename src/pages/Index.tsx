@@ -2,38 +2,45 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import WalletConnect from "@/components/WalletConnect";
 import StreamCounter from "@/components/StreamCounter";
 import PayerDashboard from "@/components/PayerDashboard";
-import ReceiverDashboard from "@/components/ReceiverDashboard";
+import ActiveStreams, { type Stream } from "@/components/ActiveStreams";
 import VaultProgress from "@/components/VaultProgress";
 import TransactionLog, { type Transaction } from "@/components/TransactionLog";
 
 interface StreamConfig {
+  id: string;
   amount: number;
   interval: "second" | "minute";
   duration: number;
   dripPerSecond: number;
+  receiver: string;
+  sender: string;
+  startTime: number;
 }
 
 const Index = () => {
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState("");
-  const [streamConfig, setStreamConfig] = useState<StreamConfig | null>(null);
-  const [isActive, setIsActive] = useState(false);
+  const [streamConfigs, setStreamConfigs] = useState<StreamConfig[]>([]);
   const [elapsed, setElapsed] = useState(0);
-  const [claimed, setClaimed] = useState(0);
+  const [claimedByStream, setClaimedByStream] = useState<Record<string, number>>({});
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const streamed = streamConfig
-    ? Math.min(elapsed * streamConfig.dripPerSecond, streamConfig.amount)
+  const isActive = streamConfigs.length > 0;
+  const latestConfig = streamConfigs[streamConfigs.length - 1] ?? null;
+
+  const streamed = latestConfig
+    ? Math.min(elapsed * latestConfig.dripPerSecond, latestConfig.amount)
     : 0;
-  const available = streamed - claimed;
+  const totalClaimed = Object.values(claimedByStream).reduce((a, b) => a + b, 0);
+  const available = streamed - totalClaimed;
 
   useEffect(() => {
-    if (isActive && streamConfig) {
+    if (isActive && latestConfig) {
       intervalRef.current = setInterval(() => {
         setElapsed((prev) => {
           const next = prev + 1;
-          if (next * streamConfig.dripPerSecond >= streamConfig.amount) {
+          if (next * latestConfig.dripPerSecond >= latestConfig.amount) {
             if (intervalRef.current) clearInterval(intervalRef.current);
           }
           return next;
@@ -43,26 +50,30 @@ const Index = () => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isActive, streamConfig]);
+  }, [isActive, latestConfig]);
 
   const handleConnect = (addr: string) => {
     setAddress(addr);
     setConnected(true);
   };
 
-  const handleInitialize = (config: { amount: number; interval: "second" | "minute"; duration: number }) => {
+  const handleInitialize = (config: { amount: number; interval: "second" | "minute"; duration: number; receiver: string }) => {
     const totalSeconds = config.duration * 86400;
     const dripPerSecond = config.interval === "second"
       ? config.amount / totalSeconds
       : config.amount / (config.duration * 1440);
 
-    setStreamConfig({
+    const streamId = crypto.randomUUID();
+    const newConfig: StreamConfig = {
+      id: streamId,
       ...config,
       dripPerSecond,
-    });
-    setIsActive(true);
+      sender: address,
+      startTime: Date.now(),
+    };
+
+    setStreamConfigs((prev) => [...prev, newConfig]);
     setElapsed(0);
-    setClaimed(0);
 
     const tx: Transaction = {
       id: crypto.randomUUID(),
@@ -76,22 +87,50 @@ const Index = () => {
       amount: config.amount,
       timestamp: new Date(),
     };
-    setTransactions([fundTx, tx]);
+    setTransactions((prev) => [fundTx, tx, ...prev]);
   };
 
-  const handleClaim = useCallback(() => {
-    if (available > 0) {
-      const claimAmount = available;
-      setClaimed((prev) => prev + claimAmount);
+  const handleClaimStream = useCallback((streamId: string) => {
+    const config = streamConfigs.find((s) => s.id === streamId);
+    if (!config) return;
+
+    const elapsedSec = Math.floor((Date.now() - config.startTime) / 1000);
+    const totalStreamed = Math.min(elapsedSec * config.dripPerSecond, config.amount);
+    const alreadyClaimed = claimedByStream[streamId] ?? 0;
+    const claimable = totalStreamed - alreadyClaimed;
+
+    if (claimable > 0) {
+      setClaimedByStream((prev) => ({
+        ...prev,
+        [streamId]: (prev[streamId] ?? 0) + claimable,
+      }));
       const tx: Transaction = {
         id: crypto.randomUUID(),
         type: "CLAIM",
-        amount: claimAmount,
+        amount: claimable,
         timestamp: new Date(),
       };
       setTransactions((prev) => [tx, ...prev]);
     }
-  }, [available]);
+  }, [streamConfigs, claimedByStream]);
+
+  // Build active streams for receiver view
+  const activeStreams: Stream[] = streamConfigs.map((config) => {
+    const elapsedSec = Math.floor((Date.now() - config.startTime) / 1000);
+    const totalStreamedForThis = Math.min(elapsedSec * config.dripPerSecond, config.amount);
+    const claimed = claimedByStream[config.id] ?? 0;
+    return {
+      id: config.id,
+      sender: config.sender,
+      totalAmount: config.amount,
+      dripPerSecond: config.dripPerSecond,
+      interval: config.interval,
+      availableToClaim: totalStreamedForThis - claimed,
+      totalStreamed: totalStreamedForThis,
+      totalClaimed: claimed,
+      isActive: totalStreamedForThis < config.amount,
+    };
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -117,7 +156,7 @@ const Index = () => {
                 FLOW STATE<span className="text-primary">.</span>
               </h2>
               <p className="text-muted-foreground text-lg leading-relaxed">
-                Real-time capital distribution. No delays. No intermediaries. 
+                Real-time capital distribution. No delays. No intermediaries.
                 Fund a vault, set the drip rate, and let the blockchain handle the rest.
               </p>
               <div className="mt-8 font-mono-display text-sm text-primary">
@@ -132,13 +171,13 @@ const Index = () => {
       {connected && (
         <div className="max-w-[1400px] mx-auto px-6 py-6">
           {/* Stream counter - full width */}
-          {isActive && streamConfig && (
+          {isActive && latestConfig && (
             <div className="mb-6">
               <StreamCounter
-                totalAmount={streamConfig.amount}
-                dripPerSecond={streamConfig.dripPerSecond}
+                totalAmount={latestConfig.amount}
+                dripPerSecond={latestConfig.dripPerSecond}
                 isActive={isActive}
-                claimedAmount={claimed}
+                claimedAmount={totalClaimed}
               />
             </div>
           )}
@@ -148,22 +187,14 @@ const Index = () => {
             {/* Payer panel */}
             <div className="lg:col-span-4 border-b lg:border-b-0 lg:border-r border-border">
               <div className="p-0">
-                <PayerDashboard onInitialize={handleInitialize} isActive={isActive} />
+                <PayerDashboard onInitialize={handleInitialize} isActive={false} />
               </div>
             </div>
 
-            {/* Receiver panel */}
+            {/* Receiver panel - Active Streams */}
             <div className="lg:col-span-4 border-b lg:border-b-0 lg:border-r border-border">
               <div className="p-0">
-                <ReceiverDashboard
-                  availableToClaim={available}
-                  totalStreamed={streamed}
-                  totalClaimed={claimed}
-                  dripRate={streamConfig?.dripPerSecond ?? 0}
-                  interval={streamConfig?.interval ?? "second"}
-                  isActive={isActive}
-                  onClaim={handleClaim}
-                />
+                <ActiveStreams streams={activeStreams} onClaim={handleClaimStream} />
               </div>
             </div>
 
@@ -171,9 +202,9 @@ const Index = () => {
             <div className="lg:col-span-4">
               <div className="h-64 border-b border-border">
                 <VaultProgress
-                  total={streamConfig?.amount ?? 0}
+                  total={latestConfig?.amount ?? 0}
                   streamed={streamed}
-                  claimed={claimed}
+                  claimed={totalClaimed}
                 />
               </div>
               <TransactionLog transactions={transactions} />

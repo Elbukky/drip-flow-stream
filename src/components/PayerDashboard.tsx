@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 
 interface PayerDashboardProps {
-  onInitialize: (config: { amount: number; interval: "second" | "minute"; duration: number }) => void;
+  onInitialize: (config: { amount: number; interval: "second" | "minute"; duration: number; receiver: string }) => void;
   isActive: boolean;
 }
 
@@ -10,12 +10,13 @@ const PayerDashboard = ({ onInitialize, isActive }: PayerDashboardProps) => {
   const [amount, setAmount] = useState("");
   const [interval, setInterval] = useState<"second" | "minute">("second");
   const [duration, setDuration] = useState("");
+  const [receiver, setReceiver] = useState("");
 
   const handleSubmit = () => {
     const amt = parseFloat(amount);
     const dur = parseInt(duration);
-    if (amt > 0 && dur > 0) {
-      onInitialize({ amount: amt, interval, duration: dur });
+    if (amt > 0 && dur > 0 && receiver.trim()) {
+      onInitialize({ amount: amt, interval, duration: dur, receiver: receiver.trim() });
     }
   };
 
@@ -30,6 +31,18 @@ const PayerDashboard = ({ onInitialize, isActive }: PayerDashboardProps) => {
       <div className="label-micro mb-6">[ PAYER_CONTROLS ] INITIALIZE VAULT</div>
 
       <div className="space-y-5">
+        <div>
+          <label className="label-micro mb-2 block">DESTINATION_WALLET</label>
+          <input
+            type="text"
+            value={receiver}
+            onChange={(e) => setReceiver(e.target.value)}
+            placeholder="0x..."
+            disabled={isActive}
+            className="w-full bg-secondary border border-border px-4 py-3 font-mono-display text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary rounded-none disabled:opacity-40"
+          />
+        </div>
+
         <div>
           <label className="label-micro mb-2 block">TOTAL_AMOUNT (USDC)</label>
           <input
@@ -95,7 +108,7 @@ const PayerDashboard = ({ onInitialize, isActive }: PayerDashboardProps) => {
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 500, damping: 15 }}
           onClick={handleSubmit}
-          disabled={isActive || !amount || !duration}
+          disabled={isActive || !amount || !duration || !receiver.trim()}
           className="btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isActive ? "[ VAULT_ACTIVE ]" : "[ INITIALIZE_VAULT ]"}
