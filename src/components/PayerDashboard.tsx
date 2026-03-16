@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 
 interface PayerDashboardProps {
-  onInitialize: (config: { amount: number; interval: "second" | "minute"; duration: number }) => void;
+  onInitialize: (config: { amount: number; interval: "second" | "minute"; duration: number; receiver: string }) => void;
   isActive: boolean;
 }
 
@@ -10,6 +10,7 @@ const PayerDashboard = ({ onInitialize, isActive }: PayerDashboardProps) => {
   const [amount, setAmount] = useState("");
   const [interval, setInterval] = useState<"second" | "minute">("second");
   const [duration, setDuration] = useState("");
+  const [receiver, setReceiver] = useState("");
 
   const handleSubmit = () => {
     const amt = parseFloat(amount);
