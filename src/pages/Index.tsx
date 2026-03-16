@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useAccount, useDisconnect } from "wagmi";
 import WalletConnect from "@/components/WalletConnect";
 import StreamCounter from "@/components/StreamCounter";
 import PayerDashboard from "@/components/PayerDashboard";
@@ -18,13 +19,16 @@ interface StreamConfig {
 }
 
 const Index = () => {
-  const [connected, setConnected] = useState(false);
-  const [address, setAddress] = useState("");
+  const { address, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
   const [streamConfigs, setStreamConfigs] = useState<StreamConfig[]>([]);
   const [elapsed, setElapsed] = useState(0);
   const [claimedByStream, setClaimedByStream] = useState<Record<string, number>>({});
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const connected = isConnected;
+  const walletAddress = address ?? "";
 
   const isActive = streamConfigs.length > 0;
   const latestConfig = streamConfigs[streamConfigs.length - 1] ?? null;
@@ -52,11 +56,6 @@ const Index = () => {
     };
   }, [isActive, latestConfig]);
 
-  const handleConnect = (addr: string) => {
-    setAddress(addr);
-    setConnected(true);
-  };
-
   const handleInitialize = (config: { amount: number; interval: "second" | "minute"; duration: number; receiver: string }) => {
     const totalSeconds = config.duration * 86400;
     const dripPerSecond = config.interval === "second"
@@ -68,7 +67,7 @@ const Index = () => {
       id: streamId,
       ...config,
       dripPerSecond,
-      sender: address,
+      sender: walletAddress,
       startTime: Date.now(),
     };
 
@@ -143,7 +142,7 @@ const Index = () => {
             </h1>
             <span className="label-micro mt-1">v1.0.0</span>
           </div>
-          <WalletConnect onConnect={handleConnect} connected={connected} address={address} />
+          <WalletConnect />
         </div>
       </header>
 

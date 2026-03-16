@@ -1,50 +1,113 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
-interface WalletConnectProps {
-  onConnect: (address: string) => void;
-  connected: boolean;
-  address: string;
-}
-
-const WalletConnect = ({ onConnect, connected, address }: WalletConnectProps) => {
-  const [connecting, setConnecting] = useState(false);
-
-  const handleConnect = () => {
-    setConnecting(true);
-    // Simulate wallet connection
-    setTimeout(() => {
-      const mockAddress = "0x" + Array.from({ length: 40 }, () =>
-        Math.floor(Math.random() * 16).toString(16)
-      ).join("");
-      onConnect(mockAddress);
-      setConnecting(false);
-    }, 1200);
-  };
-
-  const truncate = (addr: string) =>
-    `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-
+const WalletConnect = () => {
   return (
-    <div className="flex items-center gap-4">
-      {connected ? (
-        <div className="flex items-center gap-3 border border-border px-4 py-2 bg-secondary">
-          <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-          <span className="font-mono-display text-sm text-foreground">{truncate(address)}</span>
-          <span className="label-micro">CONNECTED</span>
-        </div>
-      ) : (
-        <motion.button
-          whileTap={{ scale: 0.97 }}
-          transition={{ type: "spring", stiffness: 500, damping: 15 }}
-          onClick={handleConnect}
-          disabled={connecting}
-          className="btn-primary"
-        >
-          {connecting ? "[ CONNECTING... ]" : "[ CONNECT_WALLET ]"}
-        </motion.button>
-      )}
-    </div>
+    <ConnectButton.Custom>
+      {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
+        const ready = mounted;
+        const connected = ready && account && chain;
+
+        return (
+          <div
+            style={{
+              display: "flex",
+              gap: "16px",
+              alignItems: "center",
+            }}
+            aria-hidden={!ready}
+          >
+            {connected ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "8px 16px",
+                  border: "1px solid hsl(var(--border))",
+                  backgroundColor: "hsl(var(--secondary))",
+                }}
+              >
+                <div
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    backgroundColor: "hsl(var(--primary))",
+                    borderRadius: "50%",
+                    animation: "pulse 2s infinite",
+                  }}
+                />
+                <button
+                  onClick={openAccountModal}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    fontFamily: "monospace",
+                    fontSize: "14px",
+                    color: "hsl(var(--foreground))",
+                    cursor: "pointer",
+                  }}
+                >
+                  {account.displayName}
+                  {account.displayBalance ? ` (${account.displayBalance})` : ""}
+                </button>
+                <button
+                  onClick={openChainModal}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "4px 8px",
+                    background: "hsl(var(--accent))",
+                    border: "none",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                    color: "hsl(var(--accent-foreground))",
+                    cursor: "pointer",
+                  }}
+                >
+                  {chain.hasIcon && (
+                    <div
+                      style={{
+                        width: "12px",
+                        height: "12px",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      {chain.iconUrl && (
+                        <img
+                          src={chain.iconUrl}
+                          alt={chain.name}
+                          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                        />
+                      )}
+                    </div>
+                  )}
+                  {chain.name}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={openConnectModal}
+                style={{
+                  padding: "10px 20px",
+                  background: "hsl(var(--primary))",
+                  color: "hsl(var(--primary-foreground))",
+                  border: "none",
+                  borderRadius: "4px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  fontFamily: "monospace",
+                }}
+              >
+                [ CONNECT_WALLET ]
+              </button>
+            )}
+          </div>
+        );
+      }}
+    </ConnectButton.Custom>
   );
 };
 
