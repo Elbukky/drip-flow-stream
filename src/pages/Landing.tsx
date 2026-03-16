@@ -99,11 +99,19 @@ const Landing = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.8 }}
-              className="mt-16 border border-border p-6 inline-block"
+              className="mt-16 border border-border p-6 inline-flex gap-12"
             >
-              <div className="label-micro mb-2">LIVE_SAMPLE_RATE</div>
-              <div className="font-mono-display text-3xl text-primary">
-                4.829301 <span className="text-muted-foreground text-lg">USDC / SEC</span>
+              <div>
+                <div className="label-micro mb-2">LIVE_SAMPLE_RATE</div>
+                <div className="font-mono-display text-3xl text-primary">
+                  0.01 <span className="text-muted-foreground text-lg">USDC / SEC</span>
+                </div>
+              </div>
+              <div>
+                <div className="label-micro mb-2">STREAM_DURATION</div>
+                <div className="font-mono-display text-3xl text-primary">
+                  2 <span className="text-muted-foreground text-lg">MONTHS</span>
+                </div>
               </div>
             </motion.div>
           </div>
