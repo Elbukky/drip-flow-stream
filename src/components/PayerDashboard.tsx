@@ -108,7 +108,7 @@ const PayerDashboard = ({ onInitialize, isActive }: PayerDashboardProps) => {
           whileTap={{ scale: 0.97 }}
           transition={{ type: "spring", stiffness: 500, damping: 15 }}
           onClick={handleSubmit}
-          disabled={isActive || !amount || !duration}
+          disabled={isActive || !amount || !duration || !receiver.trim()}
           className="btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {isActive ? "[ VAULT_ACTIVE ]" : "[ INITIALIZE_VAULT ]"}
