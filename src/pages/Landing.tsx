@@ -71,7 +71,7 @@ const Landing = () => {
                 <span className="text-primary">.</span>
               </h2>
               <p className="text-muted-foreground text-lg lg:text-xl leading-relaxed max-w-xl mb-10">
-                Stream payments per-second on-chain. Fund a vault, set the drip rate,
+                Stream payments in bits on-chain. Fund a vault, set the drip rate,
                 and let the protocol handle continuous distribution.
               </p>
             </motion.div>
