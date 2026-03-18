@@ -99,6 +99,30 @@
     animation: flow-down 1.5s ease-in-out forwards;
   }
 
+  @keyframes flow-horizontal {
+    0% {
+      left: 20%;
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.5);
+    }
+    10% {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1.2);
+    }
+    90% {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    100% {
+      left: 80%;
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.5);
+    }
+  }
+  .animate-flow {
+    animation: flow-horizontal 2s ease-in-out forwards;
+  }
+
   @keyframes bounce-subtle {
     0%, 100% {
       transform: translateY(0);
@@ -121,5 +145,17 @@
   }
   .animate-pulse-glow {
     animation: pulse-glow 1.5s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  .animate-shimmer {
+    animation: shimmer 2s linear infinite;
   }
 }
