@@ -1,4 +1,5 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   TOKEN_STREAM_ADDRESS,
   USDC_ADDRESS,
@@ -789,6 +790,7 @@ export function useCreateMultiStream() {
 }
 
 export function useClaim() {
+  const queryClient = useQueryClient();
   const { writeContract, data: txHash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
@@ -802,6 +804,10 @@ export function useClaim() {
     });
   };
 
+  if (isConfirmed && txHash) {
+    queryClient.invalidateQueries();
+  }
+
   return {
     claim,
     txHash,
@@ -813,6 +819,7 @@ export function useClaim() {
 }
 
 export function usePauseStream() {
+  const queryClient = useQueryClient();
   const { writeContract, data: txHash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
@@ -826,6 +833,10 @@ export function usePauseStream() {
     });
   };
 
+  if (isConfirmed && txHash) {
+    queryClient.invalidateQueries();
+  }
+
   return {
     pauseStream,
     txHash,
@@ -837,6 +848,7 @@ export function usePauseStream() {
 }
 
 export function useResumeStream() {
+  const queryClient = useQueryClient();
   const { writeContract, data: txHash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
@@ -850,6 +862,10 @@ export function useResumeStream() {
     });
   };
 
+  if (isConfirmed && txHash) {
+    queryClient.invalidateQueries();
+  }
+
   return {
     resumeStream,
     txHash,
@@ -861,6 +877,7 @@ export function useResumeStream() {
 }
 
 export function useCancelStream() {
+  const queryClient = useQueryClient();
   const { writeContract, data: txHash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
@@ -873,6 +890,10 @@ export function useCancelStream() {
       args: [streamId],
     });
   };
+
+  if (isConfirmed && txHash) {
+    queryClient.invalidateQueries();
+  }
 
   return {
     cancelStream,
