@@ -19,6 +19,8 @@ import {
   truncateAddress,
   getExplorerUrl,
 } from "@/lib/contracts";
+import { AppHeader, AppFooter } from "@/components/AppLayout";
+import { GlobalStatsBar } from "@/components/GlobalStatsBar";
 
 export default function StreamDetailPage() {
   const { streamId } = useParams<{ streamId: string }>();
@@ -82,20 +84,30 @@ export default function StreamDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      <div className="min-h-screen bg-background flex flex-col">
+        <AppHeader />
+        <GlobalStatsBar />
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        </div>
+        <AppFooter />
       </div>
     );
   }
 
   if (!stream) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
-        <p className="text-muted-foreground">Stream not found</p>
-        <Button variant="outline" onClick={() => navigate(-1)}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Go Back
-        </Button>
+      <div className="min-h-screen bg-background flex flex-col">
+        <AppHeader />
+        <GlobalStatsBar />
+        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+          <p className="text-muted-foreground">Stream not found</p>
+          <Button variant="outline" onClick={() => navigate(-1)}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Go Back
+          </Button>
+        </div>
+        <AppFooter />
       </div>
     );
   }
@@ -107,8 +119,10 @@ export default function StreamDetailPage() {
   const isBeneficiary = address?.toLowerCase() === stream.beneficiary.toLowerCase();
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-6 py-8">
+    <div className="min-h-screen bg-background flex flex-col">
+      <AppHeader />
+      <GlobalStatsBar />
+      <div className="flex-1 max-w-4xl mx-auto px-6 py-8 w-full">
         <Button variant="ghost" onClick={() => navigate(-1)} className="mb-6">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
@@ -125,7 +139,7 @@ export default function StreamDetailPage() {
             <p className="text-muted-foreground">Token Stream Details</p>
           </div>
           <div className="flex items-center gap-2">
-            <img src={USDC_LOGO} alt="USDC" className="w-6 h-6" />
+            <img src={USDC_LOGO} alt="USDC" className="w-6 h-6 rounded-full" />
             <span className="font-mono-display text-2xl text-foreground">
               {formatUSDC(stream.totalAmount)}
             </span>
@@ -228,7 +242,7 @@ export default function StreamDetailPage() {
                 <div>
                   <p className="label-micro mb-1">Total Amount</p>
                   <p className="font-mono text-sm flex items-center gap-1">
-                    <img src={USDC_LOGO} alt="USDC" className="w-4 h-4" />
+                    <img src={USDC_LOGO} alt="USDC" className="w-4 h-4 rounded-full" />
                     {formatUSDC(stream.totalAmount)} {USDC_SYMBOL}
                   </p>
                 </div>
@@ -348,6 +362,7 @@ export default function StreamDetailPage() {
           </Card>
         </div>
       </div>
+      <AppFooter />
     </div>
   );
 }

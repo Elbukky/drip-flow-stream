@@ -6,75 +6,55 @@ export function GlobalStatsBar() {
   const { data: protocolSummary, isLoading: protocolLoading } = useProtocolSummary();
   const { data: tokenStats, isLoading: tokenLoading } = useTokenStats();
 
-  if (protocolLoading || tokenLoading) {
+  if ((protocolLoading && !protocolSummary) || (tokenLoading && !tokenStats)) {
     return (
       <div className="border-b border-border bg-card/50">
-        <div className="max-w-[1400px] mx-auto px-6 py-4">
+        <div className="max-w-[1400px] mx-auto px-6 py-3">
           <div className="flex items-center justify-center gap-4">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Loading protocol stats...</span>
+            <span className="text-sm text-muted-foreground">Loading stats...</span>
           </div>
         </div>
       </div>
     );
   }
 
+  const totalStreams = protocolSummary?.[0] ?? 0n;
+  const active = protocolSummary?.[1] ?? 0n;
+  const paused = protocolSummary?.[2] ?? 0n;
+  const completed = protocolSummary?.[3] ?? 0n;
+  const cancelled = protocolSummary?.[4] ?? 0n;
+  const uniqueCreators = protocolSummary?.[5] ?? 0n;
+  const uniqueBeneficiaries = protocolSummary?.[6] ?? 0n;
+
+  const totalDeposited = tokenStats?.totalDeposited ?? 0n;
+  const totalClaimed = tokenStats?.totalClaimed ?? 0n;
+  const currentlyLocked = tokenStats?.currentlyLocked ?? 0n;
+
   return (
     <div className="border-b border-border bg-card/30">
-      <div className="max-w-[1400px] mx-auto px-6 py-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-10 gap-4">
-          <StatItem
-            label="Total Streams"
-            value={protocolSummary ? Number(protocolSummary.totalStreams).toLocaleString() : "0"}
-          />
-          <StatItem
-            label="Active"
-            value={protocolSummary ? Number(protocolSummary.active).toLocaleString() : "0"}
-            highlight
-          />
-          <StatItem
-            label="Paused"
-            value={protocolSummary ? Number(protocolSummary.paused).toLocaleString() : "0"}
-          />
-          <StatItem
-            label="Completed"
-            value={protocolSummary ? Number(protocolSummary.completed).toLocaleString() : "0"}
-          />
-          <StatItem
-            label="Cancelled"
-            value={protocolSummary ? Number(protocolSummary.cancelled).toLocaleString() : "0"}
-          />
-          <StatItem
-            label="Creators"
-            value={protocolSummary ? Number(protocolSummary.uniqueCreators).toLocaleString() : "0"}
-          />
-          <StatItem
-            label="Beneficiaries"
-            value={protocolSummary ? Number(protocolSummary.uniqueBeneficiaries).toLocaleString() : "0"}
-          />
-          <StatItem
-            label="USDC Deposited"
-            value={tokenStats ? formatUSDCCompact(tokenStats.totalDeposited) : "0"}
-            icon={<USDCLogo />}
-            suffix="USDC"
-          />
-          <StatItem
-            label="USDC Claimed"
-            value={tokenStats ? formatUSDCCompact(tokenStats.totalClaimed) : "0"}
-            icon={<USDCLogo />}
-            suffix="USDC"
-          />
-          <StatItem
-            label="USDC Locked"
-            value={tokenStats ? formatUSDCCompact(tokenStats.currentlyLocked) : "0"}
-            icon={<USDCLogo />}
-            suffix="USDC"
-            highlight
-          />
+      <div className="max-w-[1400px] mx-auto px-6 py-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-10 gap-3 lg:gap-4">
+          <StatItem label="Total" value={formatNumber(totalStreams)} />
+          <StatItem label="Active" value={formatNumber(active)} highlight />
+          <StatItem label="Paused" value={formatNumber(paused)} />
+          <StatItem label="Completed" value={formatNumber(completed)} />
+          <StatItem label="Cancelled" value={formatNumber(cancelled)} />
+          <StatItem label="Creators" value={formatNumber(uniqueCreators)} />
+          <StatItem label="Beneficiaries" value={formatNumber(uniqueBeneficiaries)} />
+          <StatItem label="USDC Deposited" value={formatUSDCCompact(totalDeposited)} icon={<USDCLogoSmall />} suffix="USDC" />
+          <StatItem label="USDC Claimed" value={formatUSDCCompact(totalClaimed)} icon={<USDCLogoSmall />} suffix="USDC" />
+          <StatItem label="USDC Locked" value={formatUSDCCompact(currentlyLocked)} icon={<USDCLogoSmall />} suffix="USDC" highlight />
         </div>
       </div>
     </div>
   );
+}
+
+function formatNumber(value: bigint): string {
+  const num = Number(value);
+  if (isNaN(num)) return "0";
+  return num.toLocaleString();
 }
 
 function StatItem({ 
@@ -91,25 +71,25 @@ function StatItem({
   highlight?: boolean;
 }) {
   return (
-    <div className="flex flex-col">
-      <span className="label-micro mb-1">{label}</span>
-      <div className="flex items-center gap-1.5">
-        {icon && <span className="w-4 h-4">{icon}</span>}
-        <span className={`font-mono-display text-sm ${highlight ? "text-primary" : "text-foreground"}`}>
+    <div className="flex flex-col min-w-0">
+      <span className="label-micro mb-0.5 text-[9px] lg:text-[10px]">{label}</span>
+      <div className="flex items-center gap-1">
+        {icon && <span className="w-3 h-3 lg:w-4 lg:h-4 flex-shrink-0">{icon}</span>}
+        <span className={`font-mono-display text-xs lg:text-sm truncate ${highlight ? "text-primary" : "text-foreground"}`}>
           {value}
         </span>
-        {suffix && <span className="text-xs text-muted-foreground">{suffix}</span>}
+        {suffix && <span className="text-[9px] lg:text-[10px] text-muted-foreground hidden sm:inline">{suffix}</span>}
       </div>
     </div>
   );
 }
 
-function USDCLogo() {
+function USDCLogoSmall() {
   return (
     <img 
       src={USDC_LOGO} 
       alt="USDC" 
-      className="w-4 h-4 rounded-full object-contain"
+      className="w-full h-full rounded-full object-contain"
       onError={(e) => {
         e.currentTarget.style.display = 'none';
       }}

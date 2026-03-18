@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useAccount } from "wagmi";
 import { useNavigate } from "react-router-dom";
 import {
@@ -11,7 +11,6 @@ import {
 } from "@/hooks/useTokenStream";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -22,82 +21,66 @@ import {
   STATUS,
   STATUS_COLORS,
   formatUSDC,
-  formatTime,
   truncateAddress,
   getStreamUrl,
-  type Stream,
 } from "@/lib/contracts";
+import { AppHeader, AppFooter } from "@/components/AppLayout";
+import { GlobalStatsBar } from "@/components/GlobalStatsBar";
 
 const PAGE_SIZE = 20;
 
 export default function MyStreamsPage() {
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-[1400px] mx-auto px-6 py-8">
-        <div className="mb-8">
-          <h1 className="font-mono-display text-3xl font-bold text-foreground tracking-tighter mb-2">
-            MY STREAMS
-          </h1>
-          <p className="text-muted-foreground">
-            Manage your created streams and view incoming streams.
-          </p>
-        </div>
+  const { isConnected } = useAccount();
 
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <AppHeader />
+        <GlobalStatsBar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="max-w-[1400px] mx-auto px-6 py-8 w-full">
+            <Card className="max-w-xl mx-auto">
+              <CardContent className="pt-6">
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">Connect your wallet to view incoming streams</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+        <AppFooter />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <AppHeader />
+      <GlobalStatsBar />
+      <div className="flex-1 max-w-[1400px] mx-auto px-6 py-8 w-full">
         <BeneficiaryStreams />
       </div>
+      <AppFooter />
     </div>
   );
 }
 
 function BeneficiaryStreams() {
-  const { address, isConnected } = useAccount();
+  const { address } = useAccount();
   const [page, setPage] = useState(0);
-  const [claimables, setClaimables] = useState<Record<string, bigint>>({});
-  const [progressData, setProgressData] = useState<Record<string, bigint>>({});
-  const [timeRemainingData, setTimeRemainingData] = useState<Record<string, bigint>>({});
+  const navigate = useNavigate();
 
   const { data: summary } = useBeneficiarySummary(address);
   const { data: breakdown } = useBeneficiaryTokenBreakdown(address);
   const { data: expiringResult } = useExpiringStreams(address!, 604800, 0, 5);
-  const { data: streamsResult } = useUserStreams(address!, page * PAGE_SIZE, PAGE_SIZE);
+  const { data: streamsResult, isLoading: streamsLoading } = useUserStreams(address!, page * PAGE_SIZE, PAGE_SIZE);
   const { claim, isPending: isClaiming, isConfirmed: claimConfirmed } = useClaim();
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (claimConfirmed) {
       toast.success("Tokens claimed successfully!");
     }
   }, [claimConfirmed]);
-
-  useEffect(() => {
-    if (!streamsResult) return;
-    const [streamIds] = streamsResult;
-    if (streamIds.length === 0) return;
-
-    const pollClaimables = () => {
-      const interval = setInterval(async () => {
-        const newClaimables: Record<string, bigint> = {};
-        for (const streamId of streamIds) {
-          const { useStream } = await import("@/hooks/useTokenStream");
-        }
-      }, 10000);
-      return () => clearInterval(interval);
-    };
-
-    pollClaimables();
-  }, [streamsResult]);
-
-  if (!isConnected) {
-    return (
-      <Card className="max-w-xl mx-auto">
-        <CardContent className="pt-6">
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Connect your wallet to view incoming streams</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -170,6 +153,8 @@ function BeneficiaryStreams() {
         setPage={setPage}
         onClaim={claim}
         isClaiming={isClaiming}
+        streamsResult={streamsResult}
+        streamsLoading={streamsLoading}
       />
     </div>
   );
@@ -181,17 +166,20 @@ function StreamList({
   setPage,
   onClaim,
   isClaiming,
+  streamsResult,
+  streamsLoading,
 }: {
   address: `0x${string}`;
   page: number;
   setPage: (page: number) => void;
   onClaim: (streamId: bigint) => void;
   isClaiming: boolean;
+  streamsResult: readonly [bigint[], bigint] | undefined;
+  streamsLoading: boolean;
 }) {
-  const { data: streamsResult, isLoading } = useUserStreams(address, page * PAGE_SIZE, PAGE_SIZE);
   const navigate = useNavigate();
 
-  if (isLoading) {
+  if (streamsLoading) {
     return (
       <div className="flex justify-center py-12">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -247,22 +235,24 @@ function StreamCard({
   isClaiming: boolean;
   onClick: () => void;
 }) {
-  const { stream, claimable, streamed, progress, timeRemaining, isLoading } = useStream(streamId);
-  const [liveClaimable, setLiveClaimable] = useState<bigint | undefined>(claimable);
+  const { stream, claimable, progress, isLoading } = useStream(streamId);
+  const [liveClaimable, setLiveClaimable] = useState<bigint | undefined>();
 
   useEffect(() => {
-    setLiveClaimable(claimable);
+    if (claimable !== undefined) {
+      setLiveClaimable(claimable);
+    }
   }, [claimable]);
 
   useEffect(() => {
     if (!stream || stream.status !== 0) return;
 
     const interval = setInterval(() => {
-      setLiveClaimable(claimable);
+      // Just keep the current claimable, it will auto-refresh
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [stream, claimable]);
+  }, [stream]);
 
   if (isLoading || !stream) {
     return (
@@ -276,7 +266,7 @@ function StreamCard({
     );
   }
 
-  const status = stream.status as keyof typeof STATUS;
+  const status = stream.status;
   const progressPercent = progress ? Number(progress) / 100 : 0;
 
   return (
@@ -303,7 +293,7 @@ function StreamCard({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <img src={USDC_LOGO} alt="USDC" className="w-5 h-5" />
+            <img src={USDC_LOGO} alt="USDC" className="w-6 h-6 rounded-full object-contain" />
             <span className="font-mono-display text-lg text-foreground">
               {formatUSDC(stream.totalAmount)}
             </span>

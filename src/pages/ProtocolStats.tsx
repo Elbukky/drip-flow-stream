@@ -7,6 +7,8 @@ import {
   formatUSDC,
   formatUSDCCompact,
 } from "@/lib/contracts";
+import { AppHeader, AppFooter } from "@/components/AppLayout";
+import { GlobalStatsBar } from "@/components/GlobalStatsBar";
 
 export default function ProtocolStatsPage() {
   const { data: protocolSummary, isLoading: protocolLoading } = useProtocolSummary();
@@ -25,18 +27,25 @@ export default function ProtocolStatsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex items-center gap-4">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          <span className="text-muted-foreground">Loading protocol stats...</span>
+      <div className="min-h-screen bg-background flex flex-col">
+        <AppHeader />
+        <GlobalStatsBar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex items-center gap-4">
+            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            <span className="text-muted-foreground">Loading protocol stats...</span>
+          </div>
         </div>
+        <AppFooter />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-[1400px] mx-auto px-6 py-8">
+    <div className="min-h-screen bg-background flex flex-col">
+      <AppHeader />
+      <GlobalStatsBar />
+      <div className="flex-1 max-w-[1400px] mx-auto px-6 py-8 w-full">
         <div className="mb-8">
           <h1 className="font-mono-display text-3xl font-bold text-foreground tracking-tighter mb-2">
             PROTOCOL STATS
@@ -97,7 +106,7 @@ export default function ProtocolStatsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <img src={USDC_LOGO} alt="USDC" className="w-5 h-5" />
+                <img src={USDC_LOGO} alt="USDC" className="w-5 h-5 rounded-full" />
                 USDC Statistics
               </CardTitle>
             </CardHeader>
@@ -198,7 +207,7 @@ export default function ProtocolStatsPage() {
                 <div>
                   <p className="label-micro mb-1">Native Token</p>
                   <div className="flex items-center gap-2">
-                    <img src={USDC_LOGO} alt="USDC" className="w-4 h-4" />
+                    <img src={USDC_LOGO} alt="USDC" className="w-4 h-4 rounded-full" />
                     <span className="font-mono text-sm">{USDC_SYMBOL}</span>
                     <span className="text-xs text-muted-foreground">(address(0))</span>
                   </div>
@@ -212,6 +221,7 @@ export default function ProtocolStatsPage() {
           </Card>
         </div>
       </div>
+      <AppFooter />
     </div>
   );
 }
