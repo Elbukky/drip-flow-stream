@@ -1,8 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAccount } from "wagmi";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Button } from "@/components/ui/button";
 import { Plus, List, BarChart3 } from "lucide-react";
+import { WalletDisplay } from "@/components/WalletDisplay";
 
 export function AppHeader() {
   const { isConnected } = useAccount();
@@ -34,7 +34,7 @@ export function AppHeader() {
               </NavLink>
             </nav>
           )}
-          <ConnectButton chainStatus="full" accountStatus="full" />
+          <WalletDisplay />
         </div>
       </div>
       
