@@ -882,13 +882,12 @@ export function useCancelStream() {
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
   const cancelStream = (streamId: bigint) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (writeContract as any)({
+    writeContract({
       address: CONTRACT_CONFIG.address,
       abi: TOKEN_STREAM_ABI,
       functionName: "cancelStream",
       args: [streamId],
-    });
+    } as never);
   };
 
   if (isConfirmed && txHash) {
