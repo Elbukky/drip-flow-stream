@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { WagmiProvider, http, createConfig } from "wagmi";
+import { WagmiProvider, http, createConfig, injected } from "wagmi";
 import { defineChain } from "viem";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
@@ -30,6 +30,9 @@ const arcTestnet = defineChain({
 
 const config = createConfig({
   chains: [arcTestnet],
+  connectors: [
+    injected(),
+  ],
   transports: {
     [arcTestnet.id]: http(),
   },
@@ -47,7 +50,7 @@ export const Providers = ({ children }: ProvidersProps) => {
           theme={darkTheme({
             accentColor: "#F97316",
             accentColorForeground: "white",
-            borderRadius: "large",
+            borderRadius: "none",
             fontStack: "system",
           })}
         >
