@@ -4,7 +4,6 @@ import { defineChain } from "viem";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
 import "@rainbow-me/rainbowkit/styles.css";
-import { metaMask } from "wagmi/connectors";
 
 const queryClient = new QueryClient();
 
@@ -31,7 +30,6 @@ const arcTestnet = defineChain({
 
 const config = createConfig({
   chains: [arcTestnet],
-  connectors: [metaMask()],
   transports: {
     [arcTestnet.id]: http(),
   },

@@ -365,32 +365,41 @@ export function useStream(streamId: bigint | number) {
     args: [streamIdBigInt],
   });
 
-  const rawStream = streamResult.data as unknown as [
-    string, string, string, bigint, bigint, number, number, number, bigint, bigint, bigint
-  ] | undefined;
+  const rawStream = streamResult.data;
   
-  const stream: Stream | undefined = rawStream ? {
-    creator: rawStream[0],
-    beneficiary: rawStream[1],
-    token: rawStream[2],
-    totalAmount: rawStream[3],
-    claimed: rawStream[4],
-    startTime: BigInt(rawStream[5]),
-    duration: BigInt(rawStream[6]),
-    status: rawStream[7],
-    pausedAt: rawStream[8],
-    accPausedDuration: rawStream[9],
-    streamId: rawStream[10],
-  } : undefined;
+  let stream: Stream | undefined;
+  if (rawStream && typeof rawStream === 'object') {
+    const r = rawStream as any;
+    stream = {
+      creator: r.creator,
+      totalAmount: BigInt(r.totalAmount.toString()),
+      beneficiary: r.beneficiary,
+      claimed: BigInt(r.claimed.toString()),
+      token: r.token,
+      startTime: BigInt(r.startTime.toString()),
+      duration: BigInt(r.duration.toString()),
+      status: Number(r.status),
+      pausedAt: BigInt(r.pausedAt.toString()),
+      accPausedDuration: BigInt(r.accPausedDuration.toString()),
+      streamId: BigInt(r.streamId.toString()),
+    };
+  }
+
+  const toBigInt = (val: unknown): bigint => {
+    if (typeof val === 'bigint') return val;
+    if (typeof val === 'number') return BigInt(Math.floor(val));
+    if (typeof val === 'string') return BigInt(val);
+    return 0n;
+  };
 
   return {
     stream,
-    claimable: claimableResult.data as bigint | undefined,
-    streamed: streamedResult.data as bigint | undefined,
-    remaining: remainingResult.data as bigint | undefined,
-    progress: progressResult.data as bigint | undefined,
-    timeRemaining: timeRemainingResult.data as bigint | undefined,
-    endTime: endTimeResult.data as bigint | undefined,
+    claimable: claimableResult.data ? toBigInt(claimableResult.data) : undefined,
+    streamed: streamedResult.data ? toBigInt(streamedResult.data) : undefined,
+    remaining: remainingResult.data ? toBigInt(remainingResult.data) : undefined,
+    progress: progressResult.data ? toBigInt(progressResult.data) : undefined,
+    timeRemaining: timeRemainingResult.data ? toBigInt(timeRemainingResult.data) : undefined,
+    endTime: endTimeResult.data ? toBigInt(endTimeResult.data) : undefined,
     isLoading: streamResult.isLoading || claimableResult.isLoading,
     refetch: () => {
       streamResult.refetch();
@@ -412,19 +421,34 @@ export function useProtocolSummary() {
     args: [],
   });
 
-  const data = result.data as unknown as [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined;
+  const rawData = result.data;
   
+  let data: {
+    totalStreams: bigint;
+    active: bigint;
+    paused: bigint;
+    completed: bigint;
+    cancelled: bigint;
+    uniqueCreators: bigint;
+    uniqueBeneficiaries: bigint;
+    tokensWhitelisted: bigint;
+  } | undefined;
+
+  if (rawData && Array.isArray(rawData)) {
+    data = {
+      totalStreams: toBigInt(rawData[0]),
+      active: toBigInt(rawData[1]),
+      paused: toBigInt(rawData[2]),
+      completed: toBigInt(rawData[3]),
+      cancelled: toBigInt(rawData[4]),
+      uniqueCreators: toBigInt(rawData[5]),
+      uniqueBeneficiaries: toBigInt(rawData[6]),
+      tokensWhitelisted: toBigInt(rawData[7]),
+    };
+  }
+
   return {
-    data: data ? {
-      totalStreams: data[0],
-      active: data[1],
-      paused: data[2],
-      completed: data[3],
-      cancelled: data[4],
-      uniqueCreators: data[5],
-      uniqueBeneficiaries: data[6],
-      tokensWhitelisted: data[7],
-    } : undefined,
+    data,
     isLoading: result.isLoading,
     refetch: result.refetch,
   };
@@ -438,18 +462,39 @@ export function useTokenStats(token?: string) {
     args: [(token || USDC_ADDRESS) as `0x${string}`],
   });
 
-  const rawData = result.data as unknown as [bigint, bigint, bigint, bigint, bigint] | undefined;
+  const rawData = result.data;
+  
+  let data: {
+    totalDeposited: bigint;
+    totalClaimed: bigint;
+    currentlyLocked: bigint;
+    activeStreamCount: bigint;
+    allTimeStreamCount: bigint;
+  } | undefined;
+
+  if (rawData && typeof rawData === 'object') {
+    const r = rawData as any;
+    data = {
+      totalDeposited: toBigInt(r.totalDeposited),
+      totalClaimed: toBigInt(r.totalClaimed),
+      currentlyLocked: toBigInt(r.currentlyLocked),
+      activeStreamCount: toBigInt(r.activeStreamCount),
+      allTimeStreamCount: toBigInt(r.allTimeStreamCount),
+    };
+  }
+
   return {
-    data: rawData ? {
-      totalDeposited: rawData[0],
-      totalClaimed: rawData[1],
-      currentlyLocked: rawData[2],
-      activeStreamCount: rawData[3],
-      allTimeStreamCount: rawData[4],
-    } : undefined,
+    data,
     isLoading: result.isLoading,
     refetch: result.refetch,
   };
+}
+
+function toBigInt(val: unknown): bigint {
+  if (typeof val === 'bigint') return val;
+  if (typeof val === 'number') return BigInt(Math.floor(val));
+  if (typeof val === 'string') return BigInt(val);
+  return 0n;
 }
 
 export function useCreatorSummary(creator: `0x${string}` | undefined) {
@@ -461,8 +506,23 @@ export function useCreatorSummary(creator: `0x${string}` | undefined) {
     query: { enabled: !!creator },
   });
 
+  const rawData = result.data;
+  
+  let data: [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined;
+  if (rawData && Array.isArray(rawData)) {
+    data = [
+      toBigInt(rawData[0]),
+      toBigInt(rawData[1]),
+      toBigInt(rawData[2]),
+      toBigInt(rawData[3]),
+      toBigInt(rawData[4]),
+      toBigInt(rawData[5]),
+      toBigInt(rawData[6]),
+    ];
+  }
+
   return {
-    data: result.data as unknown as [bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined,
+    data,
     isLoading: result.isLoading,
     refetch: result.refetch,
   };
@@ -477,8 +537,20 @@ export function useCreatorStatusBreakdown(creator: `0x${string}` | undefined) {
     query: { enabled: !!creator },
   });
 
+  const rawData = result.data;
+  
+  let data: [bigint, bigint, bigint, bigint] | undefined;
+  if (rawData && Array.isArray(rawData)) {
+    data = [
+      toBigInt(rawData[0]),
+      toBigInt(rawData[1]),
+      toBigInt(rawData[2]),
+      toBigInt(rawData[3]),
+    ];
+  }
+
   return {
-    data: result.data as unknown as [bigint, bigint, bigint, bigint] | undefined,
+    data,
     isLoading: result.isLoading,
     refetch: result.refetch,
   };
@@ -493,8 +565,15 @@ export function useCreatorVolumeByToken(creator: `0x${string}` | undefined, toke
     query: { enabled: !!creator },
   });
 
+  const rawData = result.data;
+  
+  let data: [bigint, bigint] | undefined;
+  if (rawData && Array.isArray(rawData)) {
+    data = [toBigInt(rawData[0]), toBigInt(rawData[1])];
+  }
+
   return {
-    data: result.data as unknown as [bigint, bigint] | undefined,
+    data,
     isLoading: result.isLoading,
     refetch: result.refetch,
   };
@@ -505,7 +584,6 @@ export function useCreatorStreams(creator: `0x${string}` | undefined, offset: nu
     address: CONTRACT_CONFIG.address,
     abi: TOKEN_STREAM_ABI,
     functionName: statusFilter !== undefined ? "getCreatorStreamsByStatus" : "getCreatorStreams",
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     args: statusFilter !== undefined 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ? [creator as `0x${string}`, BigInt(statusFilter), BigInt(offset), BigInt(limit)] as any
@@ -514,8 +592,17 @@ export function useCreatorStreams(creator: `0x${string}` | undefined, offset: nu
     query: { enabled: !!creator },
   });
 
+  const rawData = result.data;
+  
+  let data: [bigint[], bigint] | undefined;
+  if (rawData && Array.isArray(rawData)) {
+    const pageArray = rawData[0] as unknown[];
+    const page = Array.isArray(pageArray) ? pageArray.map(toBigInt) : [];
+    data = [page, toBigInt(rawData[1])];
+  }
+
   return {
-    data: result.data as unknown as [bigint[], bigint] | undefined,
+    data,
     isLoading: result.isLoading,
     refetch: result.refetch,
   };
@@ -530,8 +617,20 @@ export function useBeneficiarySummary(user: `0x${string}` | undefined) {
     query: { enabled: !!user },
   });
 
+  const rawData = result.data;
+  
+  let data: [bigint, bigint, bigint, bigint] | undefined;
+  if (rawData && Array.isArray(rawData)) {
+    data = [
+      toBigInt(rawData[0]),
+      toBigInt(rawData[1]),
+      toBigInt(rawData[2]),
+      toBigInt(rawData[3]),
+    ];
+  }
+
   return {
-    data: result.data as unknown as [bigint, bigint, bigint, bigint] | undefined,
+    data,
     isLoading: result.isLoading,
     refetch: result.refetch,
   };
@@ -546,8 +645,20 @@ export function useBeneficiaryTokenBreakdown(user: `0x${string}` | undefined, to
     query: { enabled: !!user },
   });
 
+  const rawData = result.data;
+  
+  let data: [bigint, bigint, bigint, bigint] | undefined;
+  if (rawData && Array.isArray(rawData)) {
+    data = [
+      toBigInt(rawData[0]),
+      toBigInt(rawData[1]),
+      toBigInt(rawData[2]),
+      toBigInt(rawData[3]),
+    ];
+  }
+
   return {
-    data: result.data as unknown as [bigint, bigint, bigint, bigint] | undefined,
+    data,
     isLoading: result.isLoading,
     refetch: result.refetch,
   };
@@ -562,8 +673,16 @@ export function useUserStreams(user: `0x${string}` | undefined, offset: number, 
     query: { enabled: !!user },
   });
 
+  const rawData = result.data;
+  
+  let data: [bigint[], bigint] | undefined;
+  if (rawData && Array.isArray(rawData)) {
+    const page = Array.isArray(rawData[0]) ? rawData[0].map(toBigInt) : [];
+    data = [page, toBigInt(rawData[1])];
+  }
+
   return {
-    data: result.data as unknown as [bigint[], bigint] | undefined,
+    data,
     isLoading: result.isLoading,
     refetch: result.refetch,
   };
@@ -578,8 +697,16 @@ export function useExpiringStreams(user: `0x${string}` | undefined, withinSecond
     query: { enabled: !!user },
   });
 
+  const rawData = result.data;
+  
+  let data: [bigint[], bigint] | undefined;
+  if (rawData && Array.isArray(rawData)) {
+    const page = Array.isArray(rawData[0]) ? rawData[0].map(toBigInt) : [];
+    data = [page, toBigInt(rawData[1])];
+  }
+
   return {
-    data: result.data as unknown as [bigint[], bigint] | undefined,
+    data,
     isLoading: result.isLoading,
     refetch: result.refetch,
   };
@@ -741,7 +868,7 @@ export function useDailyCreations() {
   });
 
   return {
-    data: result.data as bigint | undefined,
+    data: result.data ? toBigInt(result.data) : undefined,
     isLoading: result.isLoading,
   };
 }
@@ -756,7 +883,7 @@ export function useWeeklyCreations() {
   });
 
   return {
-    data: result.data as bigint | undefined,
+    data: result.data ? toBigInt(result.data) : undefined,
     isLoading: result.isLoading,
   };
 }
@@ -770,7 +897,7 @@ export function useStreamsCreatedInRange(from: number, to: number) {
   });
 
   return {
-    data: result.data as bigint | undefined,
+    data: result.data ? toBigInt(result.data) : undefined,
     isLoading: result.isLoading,
   };
 }
