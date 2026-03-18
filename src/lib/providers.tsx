@@ -1,15 +1,19 @@
 import { ReactNode } from "react";
-import { WagmiProvider, http, createConfig, injected } from "wagmi";
-import { defineChain } from "viem";
+import { WagmiProvider, createConfig, http } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
+import { 
+  RainbowKitProvider, 
+  darkTheme,
+  getDefaultWallets,
+} from "@rainbow-me/rainbowkit";
 import "@rainbow-me/rainbowkit/styles.css";
 
 const queryClient = new QueryClient();
 
-const arcTestnet = defineChain({
+const arcTestnet = {
   id: 5042002,
   name: "Arc Testnet",
+  network: "arc-testnet",
   nativeCurrency: {
     name: "USDC",
     symbol: "USDC",
@@ -22,17 +26,20 @@ const arcTestnet = defineChain({
   },
   blockExplorers: {
     default: {
-      name: "Arc Testnet Explorer",
+      name: "Arc Scan",
       url: "https://testnet.arcscan.io",
     },
   },
+};
+
+const { connectors } = getDefaultWallets({
+  appName: "DripFlow",
+  projectId: "c4f79cc821944d9680842e34466bfb",
 });
 
 const config = createConfig({
   chains: [arcTestnet],
-  connectors: [
-    injected(),
-  ],
+  connectors: connectors,
   transports: {
     [arcTestnet.id]: http(),
   },
