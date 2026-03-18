@@ -19,13 +19,13 @@ export function GlobalStatsBar() {
     );
   }
 
-  const totalStreams = protocolSummary?.[0] ?? 0n;
-  const active = protocolSummary?.[1] ?? 0n;
-  const paused = protocolSummary?.[2] ?? 0n;
-  const completed = protocolSummary?.[3] ?? 0n;
-  const cancelled = protocolSummary?.[4] ?? 0n;
-  const uniqueCreators = protocolSummary?.[5] ?? 0n;
-  const uniqueBeneficiaries = protocolSummary?.[6] ?? 0n;
+  const totalStreams = protocolSummary?.totalStreams ?? 0n;
+  const active = protocolSummary?.active ?? 0n;
+  const paused = protocolSummary?.paused ?? 0n;
+  const completed = protocolSummary?.completed ?? 0n;
+  const cancelled = protocolSummary?.cancelled ?? 0n;
+  const uniqueCreators = protocolSummary?.uniqueCreators ?? 0n;
+  const uniqueBeneficiaries = protocolSummary?.uniqueBeneficiaries ?? 0n;
 
   const totalDeposited = tokenStats?.totalDeposited ?? 0n;
   const totalClaimed = tokenStats?.totalClaimed ?? 0n;

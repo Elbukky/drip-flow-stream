@@ -434,17 +434,31 @@ export function useProtocolSummary() {
     tokensWhitelisted: bigint;
   } | undefined;
 
-  if (rawData && Array.isArray(rawData)) {
-    data = {
-      totalStreams: toBigInt(rawData[0]),
-      active: toBigInt(rawData[1]),
-      paused: toBigInt(rawData[2]),
-      completed: toBigInt(rawData[3]),
-      cancelled: toBigInt(rawData[4]),
-      uniqueCreators: toBigInt(rawData[5]),
-      uniqueBeneficiaries: toBigInt(rawData[6]),
-      tokensWhitelisted: toBigInt(rawData[7]),
-    };
+  if (rawData) {
+    if (Array.isArray(rawData)) {
+      data = {
+        totalStreams: toBigInt(rawData[0]),
+        active: toBigInt(rawData[1]),
+        paused: toBigInt(rawData[2]),
+        completed: toBigInt(rawData[3]),
+        cancelled: toBigInt(rawData[4]),
+        uniqueCreators: toBigInt(rawData[5]),
+        uniqueBeneficiaries: toBigInt(rawData[6]),
+        tokensWhitelisted: toBigInt(rawData[7]),
+      };
+    } else {
+      const r = rawData as unknown as Record<string, unknown>;
+      data = {
+        totalStreams: toBigInt(r.totalStreams ?? r[0]),
+        active: toBigInt(r.active ?? r[1]),
+        paused: toBigInt(r.paused ?? r[2]),
+        completed: toBigInt(r.completed ?? r[3]),
+        cancelled: toBigInt(r.cancelled ?? r[4]),
+        uniqueCreators: toBigInt(r.uniqueCreators ?? r[5]),
+        uniqueBeneficiaries: toBigInt(r.uniqueBeneficiaries ?? r[6]),
+        tokensWhitelisted: toBigInt(r.tokensWhitelisted ?? r[7]),
+      };
+    }
   }
 
   return {
@@ -472,15 +486,27 @@ export function useTokenStats(token?: string) {
     allTimeStreamCount: bigint;
   } | undefined;
 
-  if (rawData && typeof rawData === 'object') {
-    const r = rawData as any;
-    data = {
-      totalDeposited: toBigInt(r.totalDeposited),
-      totalClaimed: toBigInt(r.totalClaimed),
-      currentlyLocked: toBigInt(r.currentlyLocked),
-      activeStreamCount: toBigInt(r.activeStreamCount),
-      allTimeStreamCount: toBigInt(r.allTimeStreamCount),
-    };
+  if (rawData) {
+    if (typeof rawData === 'object') {
+      if (Array.isArray(rawData)) {
+        data = {
+          totalDeposited: toBigInt(rawData[0]),
+          totalClaimed: toBigInt(rawData[1]),
+          currentlyLocked: toBigInt(rawData[2]),
+          activeStreamCount: toBigInt(rawData[3]),
+          allTimeStreamCount: toBigInt(rawData[4]),
+        };
+      } else {
+        const r = rawData as Record<string, unknown>;
+        data = {
+          totalDeposited: toBigInt(r.totalDeposited ?? r[0]),
+          totalClaimed: toBigInt(r.totalClaimed ?? r[1]),
+          currentlyLocked: toBigInt(r.currentlyLocked ?? r[2]),
+          activeStreamCount: toBigInt(r.activeStreamCount ?? r[3]),
+          allTimeStreamCount: toBigInt(r.allTimeStreamCount ?? r[4]),
+        };
+      }
+    }
   }
 
   return {

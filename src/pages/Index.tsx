@@ -1,7 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { GlobalStatsBar } from "@/components/GlobalStatsBar";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Plus, List, BarChart3 } from "lucide-react";
@@ -12,7 +11,6 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader />
-      <GlobalStatsBar />
 
       {isConnected ? (
         <div className="flex-1 flex items-center justify-center">

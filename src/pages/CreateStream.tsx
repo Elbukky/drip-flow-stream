@@ -10,13 +10,11 @@ import { toast } from "sonner";
 import { Plus, Trash2, Loader2, CheckCircle2, Copy, ExternalLink } from "lucide-react";
 import { USDC_LOGO, USDC_SYMBOL, isValidAddress, toDurationSeconds, getExplorerUrl } from "@/lib/contracts";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
-import { GlobalStatsBar } from "@/components/GlobalStatsBar";
 
 export default function CreateStreamPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader />
-      <GlobalStatsBar />
       <div className="flex-1 max-w-[1400px] mx-auto px-6 py-8 w-full">
         <div className="mb-8">
           <h1 className="font-mono-display text-3xl font-bold text-foreground tracking-tighter mb-2">

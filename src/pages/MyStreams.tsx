@@ -25,7 +25,6 @@ import {
   getStreamUrl,
 } from "@/lib/contracts";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
-import { GlobalStatsBar } from "@/components/GlobalStatsBar";
 
 const PAGE_SIZE = 20;
 
@@ -36,7 +35,6 @@ export default function MyStreamsPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <AppHeader />
-        <GlobalStatsBar />
         <div className="flex-1 flex items-center justify-center">
           <div className="max-w-[1400px] mx-auto px-6 py-8 w-full">
             <Card className="max-w-xl mx-auto">
@@ -56,7 +54,6 @@ export default function MyStreamsPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader />
-      <GlobalStatsBar />
       <div className="flex-1 max-w-[1400px] mx-auto px-6 py-8 w-full">
         <BeneficiaryStreams />
       </div>
