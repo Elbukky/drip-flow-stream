@@ -1,5 +1,7 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { useProtocolSummary, useTokenStats } from "@/hooks/useTokenStream";
+import { formatUSDCCompact } from "@/lib/contracts";
 
 const features = [
   {
@@ -24,15 +26,14 @@ const features = [
   },
 ];
 
-const stats = [
-  { value: "$12.4M", label: "TOTAL_STREAMED" },
-  { value: "2,847", label: "ACTIVE_VAULTS" },
-  { value: "0.001s", label: "AVG_LATENCY" },
-  { value: "99.99%", label: "UPTIME" },
-];
-
 const Landing = () => {
   const navigate = useNavigate();
+  const { data: protocolSummary } = useProtocolSummary();
+  const { data: tokenStats } = useTokenStats();
+
+  const totalStreams = protocolSummary ? Number(protocolSummary.totalStreams) : 0;
+  const activeStreams = protocolSummary ? Number(protocolSummary.active) : 0;
+  const totalDeposited = tokenStats ? tokenStats.totalDeposited : 0n;
 
   return (
     <div className="min-h-screen bg-background">
@@ -121,21 +122,54 @@ const Landing = () => {
       {/* Stats */}
       <section className="border-b border-border">
         <div className="max-w-[1400px] mx-auto grid grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-              viewport={{ once: true }}
-              className={`p-8 ${i < 3 ? "border-r border-border" : ""}`}
-            >
-              <div className="font-mono-display text-3xl lg:text-4xl text-primary font-bold mb-2">
-                {stat.value}
-              </div>
-              <div className="label-micro">{stat.label}</div>
-            </motion.div>
-          ))}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0 }}
+            viewport={{ once: true }}
+            className="p-8 border-r border-border"
+          >
+            <div className="font-mono-display text-3xl lg:text-4xl text-primary font-bold mb-2">
+              {formatUSDCCompact(totalDeposited)}
+            </div>
+            <div className="label-micro">TOTAL_STREAMED</div>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            viewport={{ once: true }}
+            className="p-8 border-r border-border"
+          >
+            <div className="font-mono-display text-3xl lg:text-4xl text-primary font-bold mb-2">
+              {activeStreams.toLocaleString()}
+            </div>
+            <div className="label-micro">ACTIVE_STREAMS</div>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            viewport={{ once: true }}
+            className="p-8 border-r border-border"
+          >
+            <div className="font-mono-display text-3xl lg:text-4xl text-primary font-bold mb-2">
+              {totalStreams.toLocaleString()}
+            </div>
+            <div className="label-micro">TOTAL_STREAMS</div>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            viewport={{ once: true }}
+            className="p-8"
+          >
+            <div className="font-mono-display text-3xl lg:text-4xl text-primary font-bold mb-2">
+              {protocolSummary ? Number(protocolSummary.uniqueCreators) : 0}
+            </div>
+            <div className="label-micro">CREATORS</div>
+          </motion.div>
         </div>
       </section>
 
