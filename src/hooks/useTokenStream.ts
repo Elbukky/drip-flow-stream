@@ -1,4 +1,4 @@
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   TOKEN_STREAM_ADDRESS,
@@ -877,17 +877,22 @@ export function useResumeStream() {
 }
 
 export function useCancelStream() {
+  const { address } = useAccount();
   const queryClient = useQueryClient();
   const { writeContract, data: txHash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
   const cancelStream = (streamId: bigint) => {
+    if (!address) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     writeContract({
       address: CONTRACT_CONFIG.address,
-      abi: TOKEN_STREAM_ABI,
+      abi: TOKEN_STREAM_ABI as any,
       functionName: "cancelStream",
       args: [streamId],
-    } as never);
+      account: address,
+      chain: undefined,
+    } as any);
   };
 
   if (isConfirmed && txHash) {
