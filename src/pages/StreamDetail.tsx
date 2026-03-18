@@ -194,7 +194,7 @@ export default function StreamDetailPage() {
                 <div>
                   <p className="label-micro mb-1">Creator</p>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm">{stream.creator}</span>
+                    <span className="font-mono text-xs sm:text-sm">{truncateAddress(stream.creator)}</span>
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(stream.creator);
@@ -209,7 +209,7 @@ export default function StreamDetailPage() {
                 <div>
                   <p className="label-micro mb-1">Beneficiary</p>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm">{stream.beneficiary}</span>
+                    <span className="font-mono text-xs sm:text-sm">{truncateAddress(stream.beneficiary)}</span>
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(stream.beneficiary);
