@@ -7,6 +7,10 @@ import { Providers } from "./lib/providers";
 import Landing from "./pages/Landing.tsx";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import CreateStreamPage from "./pages/CreateStream.tsx";
+import MyStreamsPage from "./pages/MyStreams.tsx";
+import StreamDetailPage from "./pages/StreamDetail.tsx";
+import ProtocolStatsPage from "./pages/ProtocolStats.tsx";
 
 const queryClient = new QueryClient();
 
@@ -20,6 +24,10 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/app" element={<Index />} />
+            <Route path="/app/create" element={<CreateStreamPage />} />
+            <Route path="/app/streams" element={<MyStreamsPage />} />
+            <Route path="/app/stream/:streamId" element={<StreamDetailPage />} />
+            <Route path="/app/protocol" element={<ProtocolStatsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
