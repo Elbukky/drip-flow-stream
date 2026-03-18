@@ -2,7 +2,7 @@ export const TOKEN_STREAM_ADDRESS = "0x82817f305C20b8E6B6871C3e2bB1d37Dd07f0629"
 export const USDC_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const USDC_DECIMALS = 18;
 export const USDC_SYMBOL = "USDC";
-export const USDC_LOGO = "https://cryptologos.cc/logos/usd-coin-usdc-logo.png";
+export const USDC_LOGO = "/Usdc logo.png";
 
 export const TOKEN_STREAM_ABI = [
   {

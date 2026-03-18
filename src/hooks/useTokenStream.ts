@@ -365,20 +365,22 @@ export function useStream(streamId: bigint | number) {
     args: [streamIdBigInt],
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rawStream = streamResult.data as any;
+  const rawStream = streamResult.data as unknown as [
+    string, string, string, bigint, bigint, number, number, number, bigint, bigint, bigint
+  ] | undefined;
+  
   const stream: Stream | undefined = rawStream ? {
-    creator: rawStream.creator,
-    totalAmount: BigInt(rawStream.totalAmount),
-    beneficiary: rawStream.beneficiary,
-    claimed: BigInt(rawStream.claimed),
-    token: rawStream.token,
-    startTime: BigInt(rawStream.startTime),
-    duration: BigInt(rawStream.duration),
-    status: Number(rawStream.status),
-    pausedAt: BigInt(rawStream.pausedAt),
-    accPausedDuration: BigInt(rawStream.accPausedDuration),
-    streamId: BigInt(rawStream.streamId),
+    creator: rawStream[0],
+    beneficiary: rawStream[1],
+    token: rawStream[2],
+    totalAmount: rawStream[3],
+    claimed: rawStream[4],
+    startTime: BigInt(rawStream[5]),
+    duration: BigInt(rawStream[6]),
+    status: rawStream[7],
+    pausedAt: rawStream[8],
+    accPausedDuration: rawStream[9],
+    streamId: rawStream[10],
   } : undefined;
 
   return {
@@ -410,8 +412,19 @@ export function useProtocolSummary() {
     args: [],
   });
 
+  const data = result.data as unknown as [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint] | undefined;
+  
   return {
-    data: result.data as unknown as { totalStreams: bigint; active: bigint; paused: bigint; completed: bigint; cancelled: bigint; uniqueCreators: bigint; uniqueBeneficiaries: bigint; tokensWhitelisted: bigint } | undefined,
+    data: data ? {
+      totalStreams: data[0],
+      active: data[1],
+      paused: data[2],
+      completed: data[3],
+      cancelled: data[4],
+      uniqueCreators: data[5],
+      uniqueBeneficiaries: data[6],
+      tokensWhitelisted: data[7],
+    } : undefined,
     isLoading: result.isLoading,
     refetch: result.refetch,
   };
@@ -425,15 +438,14 @@ export function useTokenStats(token?: string) {
     args: [(token || USDC_ADDRESS) as `0x${string}`],
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rawData = result.data as any;
+  const rawData = result.data as unknown as [bigint, bigint, bigint, bigint, bigint] | undefined;
   return {
     data: rawData ? {
-      totalDeposited: BigInt(rawData.totalDeposited),
-      totalClaimed: BigInt(rawData.totalClaimed),
-      currentlyLocked: BigInt(rawData.currentlyLocked),
-      activeStreamCount: BigInt(rawData.activeStreamCount),
-      allTimeStreamCount: BigInt(rawData.allTimeStreamCount),
+      totalDeposited: rawData[0],
+      totalClaimed: rawData[1],
+      currentlyLocked: rawData[2],
+      activeStreamCount: rawData[3],
+      allTimeStreamCount: rawData[4],
     } : undefined,
     isLoading: result.isLoading,
     refetch: result.refetch,
