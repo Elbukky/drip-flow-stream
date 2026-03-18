@@ -9,7 +9,7 @@ export function AppHeader() {
   const location = useLocation();
 
   return (
-    <header className="border-b border-border sticky top-0 z-40 bg-background">
+    <header className="border-b border-border sticky top-0 z-10 bg-background">
       <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link to="/app">

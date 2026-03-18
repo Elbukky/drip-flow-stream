@@ -30,6 +30,7 @@ const arcTestnet = {
       url: "https://testnet.arcscan.io",
     },
   },
+  testnet: true,
 };
 
 const { connectors } = getDefaultWallets({
