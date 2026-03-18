@@ -3,18 +3,23 @@ import { useAccount } from "wagmi";
 import { useNavigate } from "react-router-dom";
 import {
   useUserStreams,
+  useCreatorStreams,
   useBeneficiarySummary,
   useBeneficiaryTokenBreakdown,
   useExpiringStreams,
   useStream,
   useClaim,
+  usePauseStream,
+  useResumeStream,
+  useCancelStream,
 } from "@/hooks/useTokenStream";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Copy, DollarSign, Clock } from "lucide-react";
+import { Loader2, Copy, DollarSign, Clock, Pause, Play, XCircle } from "lucide-react";
 import {
   USDC_LOGO,
   USDC_SYMBOL,
@@ -40,7 +45,7 @@ export default function MyStreamsPage() {
             <Card className="max-w-xl mx-auto">
               <CardContent className="pt-6">
                 <div className="text-center py-12">
-                  <p className="text-muted-foreground">Connect your wallet to view incoming streams</p>
+                  <p className="text-muted-foreground">Connect your wallet to view streams</p>
                 </div>
               </CardContent>
             </Card>
@@ -55,7 +60,20 @@ export default function MyStreamsPage() {
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader />
       <div className="flex-1 max-w-[1400px] mx-auto px-6 py-8 w-full">
-        <BeneficiaryStreams />
+        <Tabs defaultValue="incoming" className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="incoming">Incoming (Receiving)</TabsTrigger>
+            <TabsTrigger value="created">Created (Sending)</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="incoming">
+            <BeneficiaryStreams />
+          </TabsContent>
+          
+          <TabsContent value="created">
+            <CreatorStreams />
+          </TabsContent>
+        </Tabs>
       </div>
       <AppFooter />
     </div>
@@ -372,6 +390,208 @@ function SummaryCard({
         <p className={`font-mono-display text-sm sm:text-lg ${green ? "text-green-500" : highlight ? "text-primary" : "text-foreground"}`}>
           {value}
         </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CreatorStreams() {
+  const { address } = useAccount();
+  const [page, setPage] = useState(0);
+  const navigate = useNavigate();
+
+  const { data: streamsResult, isLoading: streamsLoading } = useCreatorStreams(address!, page * PAGE_SIZE, PAGE_SIZE);
+  const { pauseStream, isPending: isPausing, isConfirmed: pauseConfirmed } = usePauseStream();
+  const { resumeStream, isPending: isResuming, isConfirmed: resumeConfirmed } = useResumeStream();
+  const { cancelStream, isPending: isCancelling, isConfirmed: cancelConfirmed } = useCancelStream();
+
+  useEffect(() => {
+    if (pauseConfirmed) toast.success("Stream paused");
+    if (resumeConfirmed) toast.success("Stream resumed");
+    if (cancelConfirmed) toast.success("Stream cancelled");
+  }, [pauseConfirmed, resumeConfirmed, cancelConfirmed]);
+
+  if (streamsLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!streamsResult || streamsResult[0].length === 0) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">You haven't created any streams yet</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const [streamIds, total] = streamsResult;
+
+  return (
+    <div className="space-y-4">
+      {streamIds.map((streamId: bigint) => (
+        <CreatorStreamCard
+          key={streamId.toString()}
+          streamId={streamId}
+          onPause={pauseStream}
+          onResume={resumeStream}
+          onCancel={cancelStream}
+          isPausing={isPausing}
+          isResuming={isResuming}
+          isCancelling={isCancelling}
+          onClick={() => navigate(getStreamUrl(streamId.toString()))}
+        />
+      ))}
+
+      {Number(total) > (page + 1) * PAGE_SIZE && (
+        <div className="flex justify-center">
+          <Button variant="outline" onClick={() => setPage(page + 1)}>
+            Load More
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CreatorStreamCard({
+  streamId,
+  onPause,
+  onResume,
+  onCancel,
+  isPausing,
+  isResuming,
+  isCancelling,
+  onClick,
+}: {
+  streamId: bigint;
+  onPause: (id: bigint) => void;
+  onResume: (id: bigint) => void;
+  onCancel: (id: bigint) => void;
+  isPausing: boolean;
+  isResuming: boolean;
+  isCancelling: boolean;
+  onClick: () => void;
+}) {
+  const { stream, progress, isLoading } = useStream(streamId);
+
+  if (isLoading || !stream) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex justify-center py-4">
+            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const status = stream.status;
+  const progressPercent = progress ? Number(progress) / 100 : 0;
+
+  return (
+    <Card className="cursor-pointer hover:border-primary/50 transition-colors">
+      <CardContent className="pt-4 pb-4" onClick={onClick}>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className="font-mono-display text-xs sm:text-sm text-muted-foreground">#{streamId.toString()}</span>
+              <Badge className={`${STATUS_COLORS[status]} text-white text-[10px] sm:text-xs`}>{STATUS[status]}</Badge>
+            </div>
+            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
+              <span>To: {truncateAddress(stream.beneficiary)}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(stream.beneficiary);
+                  toast.success("Address copied");
+                }}
+                className="hover:text-foreground"
+              >
+                <Copy className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <img src={USDC_LOGO} alt="USDC" className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-contain" />
+            <span className="font-mono-display text-base sm:text-lg text-foreground">
+              {formatUSDC(stream.totalAmount)}
+            </span>
+            <span className="text-[10px] sm:text-sm text-muted-foreground">{USDC_SYMBOL}</span>
+          </div>
+        </div>
+
+        <div className="mb-3">
+          <div className="flex justify-between text-[10px] sm:text-xs text-muted-foreground mb-1">
+            <span>Progress</span>
+            <span>{progressPercent.toFixed(1)}%</span>
+          </div>
+          <Progress value={progressPercent} className="h-1.5 sm:h-2" />
+        </div>
+
+        <div className="flex flex-wrap justify-between gap-2 text-[10px] sm:text-xs mb-3">
+          <span className="text-muted-foreground">
+            Claimed: {formatUSDC(stream.claimed)} / {formatUSDC(stream.totalAmount)}
+          </span>
+        </div>
+
+        <div onClick={(e) => e.stopPropagation()} className="flex flex-wrap gap-2">
+          {(status === 0 || status === 1) && (
+            <>
+              {status === 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-[10px] sm:text-xs"
+                  onClick={() => onPause(streamId)}
+                  disabled={isPausing}
+                >
+                  {isPausing ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Pause className="w-3 h-3 mr-1" />}
+                  Pause
+                </Button>
+              )}
+              {status === 1 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-[10px] sm:text-xs"
+                  onClick={() => onResume(streamId)}
+                  disabled={isResuming}
+                >
+                  {isResuming ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Play className="w-3 h-3 mr-1" />}
+                  Resume
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="destructive"
+                className="text-[10px] sm:text-xs"
+                onClick={() => {
+                  if (confirm("Cancel this stream? Funds will be distributed between you and beneficiary.")) {
+                    onCancel(streamId);
+                  }
+                }}
+                disabled={isCancelling}
+              >
+                {isCancelling ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
+                Cancel
+              </Button>
+            </>
+          )}
+          {status === 2 && (
+            <Badge variant="secondary" className="text-[10px] sm:text-xs">Completed</Badge>
+          )}
+          {status === 3 && (
+            <Badge variant="destructive" className="text-[10px] sm:text-xs">Cancelled</Badge>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
