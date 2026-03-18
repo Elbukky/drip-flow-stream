@@ -81,12 +81,12 @@ function BeneficiaryStreams() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <SummaryCard label="Total Receiving" value={summary ? Number(summary[0]).toLocaleString() : "0"} />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+        <SummaryCard label="Total" value={summary ? Number(summary[0]).toLocaleString() : "0"} />
         <SummaryCard label="Active" value={summary ? Number(summary[1]).toLocaleString() : "0"} highlight />
         <SummaryCard label="Completed" value={summary ? Number(summary[2]).toLocaleString() : "0"} />
         <SummaryCard 
-          label="Claimable Now" 
+          label="Claimable" 
           value={summary ? formatUSDC(summary[3]) : "0"} 
           highlight 
           green 
@@ -95,23 +95,23 @@ function BeneficiaryStreams() {
 
       {breakdown && (
         <Card>
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-4 gap-4 text-center">
+          <CardContent className="pt-4 pb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 text-center">
               <div>
-                <p className="label-micro mb-1">Claimed</p>
-                <p className="font-mono-display text-primary">{formatUSDC(breakdown[0])}</p>
+                <p className="label-micro mb-0.5 text-[9px] sm:text-xs">Claimed</p>
+                <p className="font-mono-display text-xs sm:text-sm text-primary">{formatUSDC(breakdown[0])}</p>
               </div>
               <div>
-                <p className="label-micro mb-1">Pending Now</p>
-                <p className="font-mono-display text-green-500">{formatUSDC(breakdown[1])}</p>
+                <p className="label-micro mb-0.5 text-[9px] sm:text-xs">Pending</p>
+                <p className="font-mono-display text-xs sm:text-sm text-green-500">{formatUSDC(breakdown[1])}</p>
               </div>
               <div>
-                <p className="label-micro mb-1">Still Locked</p>
-                <p className="font-mono-display">{formatUSDC(breakdown[2])}</p>
+                <p className="label-micro mb-0.5 text-[9px] sm:text-xs">Locked</p>
+                <p className="font-mono-display text-xs sm:text-sm">{formatUSDC(breakdown[2])}</p>
               </div>
               <div>
-                <p className="label-micro mb-1">Total Expected</p>
-                <p className="font-mono-display">{formatUSDC(breakdown[3])}</p>
+                <p className="label-micro mb-0.5 text-[9px] sm:text-xs">Expected</p>
+                <p className="font-mono-display text-xs sm:text-sm">{formatUSDC(breakdown[3])}</p>
               </div>
             </div>
           </CardContent>
@@ -268,14 +268,14 @@ function StreamCard({
 
   return (
     <Card className="cursor-pointer hover:border-primary/50 transition-colors">
-      <CardContent className="pt-6" onClick={onClick}>
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-mono-display text-sm text-muted-foreground">Stream #{streamId.toString()}</span>
-              <Badge className={`${STATUS_COLORS[status]} text-white`}>{STATUS[status]}</Badge>
+      <CardContent className="pt-4 pb-4" onClick={onClick}>
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className="font-mono-display text-xs sm:text-sm text-muted-foreground">#{streamId.toString()}</span>
+              <Badge className={`${STATUS_COLORS[status]} text-white text-[10px] sm:text-xs`}>{STATUS[status]}</Badge>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
               <span>From: {truncateAddress(stream.creator)}</span>
               <button
                 onClick={(e) => {
@@ -289,64 +289,64 @@ function StreamCard({
               </button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <img src={USDC_LOGO} alt="USDC" className="w-6 h-6 rounded-full object-contain" />
-            <span className="font-mono-display text-lg text-foreground">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <img src={USDC_LOGO} alt="USDC" className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-contain" />
+            <span className="font-mono-display text-base sm:text-lg text-foreground">
               {formatUSDC(stream.totalAmount)}
             </span>
-            <span className="text-sm text-muted-foreground">{USDC_SYMBOL}</span>
+            <span className="text-[10px] sm:text-sm text-muted-foreground">{USDC_SYMBOL}</span>
           </div>
         </div>
 
-        <div className="mb-4">
-          <div className="flex justify-between text-xs text-muted-foreground mb-1">
+        <div className="mb-3">
+          <div className="flex justify-between text-[10px] sm:text-xs text-muted-foreground mb-1">
             <span>Progress</span>
             <span>{progressPercent.toFixed(1)}%</span>
           </div>
-          <Progress value={progressPercent} className="h-2" />
+          <Progress value={progressPercent} className="h-1.5 sm:h-2" />
         </div>
 
-        <div className="flex justify-between text-sm mb-4">
+        <div className="flex flex-wrap justify-between gap-2 text-[10px] sm:text-xs mb-3">
           <span className="text-muted-foreground">
             Claimed: {formatUSDC(stream.claimed)} / {formatUSDC(stream.totalAmount)}
           </span>
           {status === 0 && liveClaimable !== undefined && (
-            <span className="flex items-center gap-1 text-green-500">
+            <span className="flex items-center gap-1 text-green-500 font-medium">
               <DollarSign className="w-3 h-3" />
-              Claimable: {formatUSDC(liveClaimable)}
+              {formatUSDC(liveClaimable)} claimable
             </span>
           )}
         </div>
 
-        <div onClick={(e) => e.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()} className="w-full">
           {status === 0 && liveClaimable !== undefined && Number(liveClaimable) > 0 && (
             <Button
               size="sm"
+              className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-xs sm:text-sm"
               onClick={() => onClaim(stream.streamId)}
               disabled={isClaiming}
-              className="bg-green-600 hover:bg-green-700"
             >
               {isClaiming ? (
                 <Loader2 className="w-3 h-3 animate-spin mr-1" />
               ) : (
                 <DollarSign className="w-3 h-3 mr-1" />
               )}
-              Claim {formatUSDC(liveClaimable)} {USDC_SYMBOL}
+              Claim {formatUSDC(liveClaimable)} USDC
             </Button>
           )}
           {status === 0 && (liveClaimable === undefined || Number(liveClaimable) <= 0) && (
-            <Button size="sm" disabled>
+            <Button size="sm" disabled className="text-[10px] sm:text-xs">
               Nothing to claim yet
             </Button>
           )}
           {status === 1 && (
-            <Badge variant="secondary">Paused by Creator</Badge>
+            <Badge variant="secondary" className="text-[10px] sm:text-xs">Paused</Badge>
           )}
           {status === 2 && (
-            <Badge variant="secondary">Fully Streamed</Badge>
+            <Badge variant="secondary" className="text-[10px] sm:text-xs">Completed</Badge>
           )}
           {status === 3 && (
-            <Badge variant="destructive">Cancelled</Badge>
+            <Badge variant="destructive" className="text-[10px] sm:text-xs">Cancelled</Badge>
           )}
         </div>
       </CardContent>
@@ -367,9 +367,9 @@ function SummaryCard({
 }) {
   return (
     <Card className={highlight ? "border-primary/50" : ""}>
-      <CardContent className="pt-6">
-        <p className="label-micro mb-1">{label}</p>
-        <p className={`font-mono-display text-lg ${green ? "text-green-500" : highlight ? "text-primary" : "text-foreground"}`}>
+      <CardContent className="pt-3 pb-3 sm:pt-4 sm:pb-4">
+        <p className="label-micro mb-0.5 text-[9px] sm:text-xs">{label}</p>
+        <p className={`font-mono-display text-sm sm:text-lg ${green ? "text-green-500" : highlight ? "text-primary" : "text-foreground"}`}>
           {value}
         </p>
       </CardContent>
