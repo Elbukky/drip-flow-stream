@@ -16,7 +16,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2, Copy, DollarSign, Clock, Pause, Play, XCircle } from "lucide-react";
@@ -29,6 +28,7 @@ import {
   truncateAddress,
   getStreamUrl,
 } from "@/lib/contracts";
+import { USDCFlow } from "@/components/USDCFlow";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
 
 const PAGE_SIZE = 20;
@@ -316,15 +316,9 @@ function StreamCard({
           </div>
         </div>
 
-        <div className="mb-3">
-          <div className="flex justify-between text-[10px] sm:text-xs text-muted-foreground mb-1">
-            <span>Progress</span>
-            <span>{progressPercent.toFixed(1)}%</span>
-          </div>
-          <Progress value={progressPercent} className="h-1.5 sm:h-2" />
-        </div>
+        <USDCFlow progress={progressPercent} totalAmount={formatUSDC(stream.totalAmount)} />
 
-        <div className="flex flex-wrap justify-between gap-2 text-[10px] sm:text-xs mb-3">
+        <div className="flex flex-wrap justify-between gap-2 text-[10px] sm:text-xs mt-3 mb-3">
           <span className="text-muted-foreground">
             Claimed: {formatUSDC(stream.claimed)} / {formatUSDC(stream.totalAmount)}
           </span>
@@ -528,15 +522,9 @@ function CreatorStreamCard({
           </div>
         </div>
 
-        <div className="mb-3">
-          <div className="flex justify-between text-[10px] sm:text-xs text-muted-foreground mb-1">
-            <span>Progress</span>
-            <span>{progressPercent.toFixed(1)}%</span>
-          </div>
-          <Progress value={progressPercent} className="h-1.5 sm:h-2" />
-        </div>
+        <USDCFlow progress={progressPercent} totalAmount={formatUSDC(stream.totalAmount)} />
 
-        <div className="flex flex-wrap justify-between gap-2 text-[10px] sm:text-xs mb-3">
+        <div className="flex flex-wrap justify-between gap-2 text-[10px] sm:text-xs mt-3 mb-3">
           <span className="text-muted-foreground">
             Claimed: {formatUSDC(stream.claimed)} / {formatUSDC(stream.totalAmount)}
           </span>
