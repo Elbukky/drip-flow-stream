@@ -36,6 +36,8 @@ interface Particle {
   size: number;
   speed: number;
   opacity: number;
+  blink: boolean;
+  direction: number;
 }
 
 const HeroParticles = () => {
@@ -43,14 +45,17 @@ const HeroParticles = () => {
 
   useEffect(() => {
     const newParticles: Particle[] = [];
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 25; i++) {
+      const blink = Math.random() > 0.6;
       newParticles.push({
         id: i,
         x: Math.random() * 100,
         y: Math.random() * 100,
-        size: Math.random() * 4 + 2,
-        speed: Math.random() * 20 + 10,
-        opacity: Math.random() * 0.5 + 0.1,
+        size: Math.random() * 5 + 2,
+        speed: Math.random() * 15 + 5,
+        opacity: Math.random() * 0.4 + 0.1,
+        blink,
+        direction: Math.random() * 360,
       });
     }
     setParticles(newParticles);
@@ -67,17 +72,36 @@ const HeroParticles = () => {
             top: `${particle.y}%`,
             width: particle.size,
             height: particle.size,
-            opacity: particle.opacity,
           }}
-          animate={{
-            y: [-20, 20],
-            opacity: [particle.opacity * 0.5, particle.opacity],
-          }}
+          initial={{ opacity: particle.opacity }}
+          animate={
+            particle.blink
+              ? {
+                  opacity: [particle.opacity, 0.05, particle.opacity],
+                  y: [0, Math.sin(particle.direction) * 30, 0],
+                  x: [0, Math.cos(particle.direction) * 20, 0],
+                }
+              : {
+                  y: [
+                    0,
+                    Math.sin(particle.direction) * 40,
+                    Math.sin(particle.direction + 1) * 20,
+                    0,
+                  ],
+                  x: [
+                    0,
+                    Math.cos(particle.direction) * 30,
+                    Math.cos(particle.direction + 1) * 15,
+                    0,
+                  ],
+                }
+          }
           transition={{
             duration: particle.speed,
             repeat: Infinity,
             repeatType: "reverse",
             ease: "easeInOut",
+            times: particle.blink ? [0, 0.5, 1] : undefined,
           }}
         />
       ))}
