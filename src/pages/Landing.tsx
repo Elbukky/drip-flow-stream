@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useProtocolSummary, useTokenStats } from "@/hooks/useTokenStream";
-import { formatUSDCCompact } from "@/lib/contracts";
+import { formatUSDCCompact, USDC_LOGO } from "@/lib/contracts";
 
 const features = [
   {
@@ -40,7 +40,8 @@ const Landing = () => {
       {/* Nav */}
       <header className="border-b border-border">
         <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <img src={USDC_LOGO} alt="DripFlow" className="w-8 h-8 sm:w-10 sm:h-10" />
             <h1 className="font-mono-display text-xl text-primary font-bold tracking-tighter">
               DRIP<span className="text-foreground">FLOW</span>
             </h1>
