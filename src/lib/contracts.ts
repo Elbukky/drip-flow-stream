@@ -2,7 +2,7 @@ export const TOKEN_STREAM_ADDRESS = "0xDa0b9d18Fe9e67e5997b96Ef6ACa25a87eee62a9"
 export const USDC_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const USDC_DECIMALS = 18;
 export const USDC_SYMBOL = "USDC";
-export const USDC_LOGO = "/Usdc logo.png";
+export const USDC_LOGO = "/usdc-logo.png";
 
 export const TOKEN_STREAM_ABI = [
   {
