@@ -490,6 +490,12 @@ export const STATUS_TEXT_COLORS: Record<number, string> = {
   3: "text-red-500",
 };
 
+export function isStreamFinished(status: number, timeRemaining?: bigint): boolean {
+  if (status === 2 || status === 3) return true;
+  if (timeRemaining !== undefined && timeRemaining === 0n) return true;
+  return false;
+}
+
 export interface Stream {
   creator: string;
   totalAmount: bigint;

@@ -31,6 +31,7 @@ import {
   getPerUnlockAmount,
   getNextUnlockIn,
   formatTime,
+  isStreamFinished,
 } from "@/lib/contracts";
 import { USDCFlow } from "@/components/USDCFlow";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
@@ -254,7 +255,7 @@ function StreamCard({
   isClaiming: boolean;
   onClick: () => void;
 }) {
-  const { stream, claimable, progress, isLoading, refetch } = useStream(streamId);
+  const { stream, claimable, progress, timeRemaining, isLoading, refetch } = useStream(streamId);
   const [liveClaimable, setLiveClaimable] = useState<bigint | undefined>();
   const [nextUnlock, setNextUnlock] = useState<number>(0);
 
@@ -265,7 +266,7 @@ function StreamCard({
   }, [claimable]);
 
   useEffect(() => {
-    if (!stream || stream.status !== 0) return;
+    if (!stream || isStreamFinished(stream.status, timeRemaining)) return;
 
     const updateNextUnlock = () => {
       const next = getNextUnlockIn(stream.startTime, stream.interval);
@@ -276,16 +277,16 @@ function StreamCard({
     const interval = setInterval(updateNextUnlock, 1000);
 
     return () => clearInterval(interval);
-  }, [stream]);
+  }, [stream, timeRemaining]);
 
   useEffect(() => {
-    if (!stream || stream.status !== 0) return;
+    if (!stream || isStreamFinished(stream.status, timeRemaining)) return;
     if (nextUnlock === 1) {
       setTimeout(() => {
         refetch();
       }, 1000);
     }
-  }, [nextUnlock, stream, refetch]);
+  }, [nextUnlock, stream, timeRemaining, refetch]);
 
   if (isLoading || !stream) {
     return (
@@ -300,6 +301,8 @@ function StreamCard({
   }
 
   const status = stream.status;
+  const isFinished = isStreamFinished(status, timeRemaining);
+  const displayStatus = isFinished && status === 0 ? 2 : status;
   const progressPercent = progress ? Number(progress) / 100 : 0;
   const perUnlock = getPerUnlockAmount(stream.totalAmount, stream.duration, stream.interval);
 
@@ -310,7 +313,7 @@ function StreamCard({
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <span className="font-mono-display text-xs sm:text-sm text-muted-foreground">#{streamId.toString()}</span>
-              <Badge className={`${STATUS_COLORS[status]} text-white text-[10px] sm:text-xs`}>{STATUS[status]}</Badge>
+              <Badge className={`${STATUS_COLORS[displayStatus]} text-white text-[10px] sm:text-xs`}>{STATUS[displayStatus]}</Badge>
             </div>
             <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
               <span>From: {truncateAddress(stream.creator)}</span>
@@ -356,7 +359,7 @@ function StreamCard({
           <span className="text-muted-foreground">
             Claimed: {formatUSDC(stream.claimed)} / {formatUSDC(stream.totalAmount)}
           </span>
-          {status === 0 && liveClaimable !== undefined && (
+          {!isFinished && liveClaimable !== undefined && (
             <span className="flex items-center gap-1 text-green-500 font-medium">
               <DollarSign className="w-3 h-3" />
               {formatUSDC(liveClaimable)} claimable
@@ -365,7 +368,7 @@ function StreamCard({
         </div>
 
         <div onClick={(e) => e.stopPropagation()} className="w-full">
-          {status === 0 && liveClaimable !== undefined && Number(liveClaimable) > 0 && (
+          {!isFinished && liveClaimable !== undefined && Number(liveClaimable) > 0 && (
             <Button
               size="sm"
               className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-xs sm:text-sm"
@@ -380,19 +383,13 @@ function StreamCard({
               Claim {formatUSDC(liveClaimable)} USDC
             </Button>
           )}
-          {status === 0 && (liveClaimable === undefined || Number(liveClaimable) <= 0) && (
+          {!isFinished && (liveClaimable === undefined || Number(liveClaimable) <= 0) && (
             <Button size="sm" disabled className="text-[10px] sm:text-xs">
               Nothing to claim yet
             </Button>
           )}
-          {status === 1 && (
-            <Badge variant="secondary" className="text-[10px] sm:text-xs">Paused</Badge>
-          )}
-          {status === 2 && (
-            <Badge variant="secondary" className="text-[10px] sm:text-xs">Completed</Badge>
-          )}
-          {status === 3 && (
-            <Badge variant="destructive" className="text-[10px] sm:text-xs">Cancelled</Badge>
+          {isFinished && (
+            <Badge variant="secondary" className="text-[10px] sm:text-xs">{STATUS[displayStatus]}</Badge>
           )}
         </div>
       </CardContent>
@@ -507,12 +504,12 @@ function CreatorStreamCard({
   isCancelling: boolean;
   onClick: () => void;
 }) {
-  const { stream, claimable, remaining, progress, isLoading } = useStream(streamId);
+  const { stream, claimable, remaining, progress, timeRemaining, isLoading } = useStream(streamId);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [nextUnlock, setNextUnlock] = useState<number>(0);
 
   useEffect(() => {
-    if (!stream || stream.status !== 0) return;
+    if (!stream || isStreamFinished(stream.status, timeRemaining)) return;
 
     const updateNextUnlock = () => {
       const next = getNextUnlockIn(stream.startTime, stream.interval);
@@ -523,7 +520,7 @@ function CreatorStreamCard({
     const interval = setInterval(updateNextUnlock, 1000);
 
     return () => clearInterval(interval);
-  }, [stream]);
+  }, [stream, timeRemaining]);
 
   if (isLoading || !stream) {
     return (
@@ -538,6 +535,8 @@ function CreatorStreamCard({
   }
 
   const status = stream.status;
+  const isFinished = isStreamFinished(status, timeRemaining);
+  const displayStatus = isFinished && status === 0 ? 2 : status;
   const progressPercent = progress ? Number(progress) / 100 : 0;
   const perUnlock = getPerUnlockAmount(stream.totalAmount, stream.duration, stream.interval);
 
@@ -548,7 +547,7 @@ function CreatorStreamCard({
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <span className="font-mono-display text-xs sm:text-sm text-muted-foreground">#{streamId.toString()}</span>
-              <Badge className={`${STATUS_COLORS[status]} text-white text-[10px] sm:text-xs`}>{STATUS[status]}</Badge>
+              <Badge className={`${STATUS_COLORS[displayStatus]} text-white text-[10px] sm:text-xs`}>{STATUS[displayStatus]}</Badge>
             </div>
             <div className="flex items-center gap-1 text-[10px] sm:text-xs text-muted-foreground">
               <span>To: {truncateAddress(stream.beneficiary)}</span>
@@ -597,54 +596,47 @@ function CreatorStreamCard({
         </div>
 
         <div onClick={(e) => e.stopPropagation()} className="flex flex-wrap gap-2">
-          {(status === 0 || status === 1) && (
+          {!isFinished && status === 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-[10px] sm:text-xs"
+              onClick={() => onPause(streamId)}
+              disabled={isPausing}
+            >
+              {isPausing ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Pause className="w-3 h-3 mr-1" />}
+              Pause
+            </Button>
+          )}
+          {!isFinished && status === 1 && (
             <>
-              {status === 0 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-[10px] sm:text-xs"
-                  onClick={() => onPause(streamId)}
-                  disabled={isPausing}
-                >
-                  {isPausing ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Pause className="w-3 h-3 mr-1" />}
-                  Pause
-                </Button>
-              )}
-              {status === 1 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-[10px] sm:text-xs"
-                  onClick={() => onResume(streamId)}
-                  disabled={isResuming}
-                >
-                  {isResuming ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Play className="w-3 h-3 mr-1" />}
-                  Resume
-                </Button>
-              )}
-              {status === 1 && (
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="text-[10px] sm:text-xs"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowCancelModal(true);
-                  }}
-                  disabled={isCancelling}
-                >
-                  {isCancelling ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
-                  Cancel
-                </Button>
-              )}
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-[10px] sm:text-xs"
+                onClick={() => onResume(streamId)}
+                disabled={isResuming}
+              >
+                {isResuming ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Play className="w-3 h-3 mr-1" />}
+                Resume
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="text-[10px] sm:text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowCancelModal(true);
+                }}
+                disabled={isCancelling}
+              >
+                {isCancelling ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
+                Cancel
+              </Button>
             </>
           )}
-          {status === 2 && (
-            <Badge variant="secondary" className="text-[10px] sm:text-xs">Completed</Badge>
-          )}
-          {status === 3 && (
-            <Badge variant="destructive" className="text-[10px] sm:text-xs">Cancelled</Badge>
+          {isFinished && (
+            <Badge variant="secondary" className="text-[10px] sm:text-xs">{STATUS[displayStatus]}</Badge>
           )}
         </div>
       </CardContent>

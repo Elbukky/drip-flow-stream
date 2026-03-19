@@ -23,6 +23,7 @@ import {
   getNextUnlockIn,
   getIntervalsCompleted,
   getTotalIntervals,
+  isStreamFinished,
 } from "@/lib/contracts";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
 
@@ -131,6 +132,8 @@ export default function StreamDetailPage() {
   }
 
   const status = stream.status as keyof typeof STATUS;
+  const isFinished = isStreamFinished(stream.status, timeRemaining);
+  const displayStatus = isFinished && stream.status === 0 ? 2 : stream.status;
   const progressPercent = progress ? Number(progress) / 100 : 0;
   const timeRemainingSeconds = timeRemaining ? Number(timeRemaining) : 0;
   const isCreator = address?.toLowerCase() === stream.creator.toLowerCase();
@@ -151,7 +154,7 @@ export default function StreamDetailPage() {
               <h1 className="font-mono-display text-3xl font-bold text-foreground tracking-tighter">
                 STREAM #{streamId}
               </h1>
-              <Badge className={`${STATUS_COLORS[status]} text-white`}>{STATUS[status]}</Badge>
+              <Badge className={`${STATUS_COLORS[displayStatus]} text-white`}>{STATUS[displayStatus]}</Badge>
             </div>
             <p className="text-muted-foreground">Token Stream Details</p>
           </div>
@@ -227,7 +230,7 @@ export default function StreamDetailPage() {
                 <div>
                   <p className="label-micro mb-1">Next Unlock In</p>
                   <p className="font-mono-display text-lg text-green-500">
-                    {status === 0 ? formatTime(nextUnlock) : "-"}
+                    {!isFinished ? formatTime(nextUnlock) : "-"}
                   </p>
                 </div>
                 <div>
@@ -314,54 +317,50 @@ export default function StreamDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-3">
-                {isCreator && (status === 0 || status === 1) && (
+                {isCreator && !isFinished && status === 0 && (
+                  <Button
+                    onClick={() => pauseStream(BigInt(streamId!))}
+                    disabled={isPausing}
+                    variant="outline"
+                  >
+                    {isPausing ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <Pause className="w-4 h-4 mr-2" />
+                    )}
+                    Pause Stream
+                  </Button>
+                )}
+                {isCreator && !isFinished && status === 1 && (
                   <>
-                    {status === 0 && (
-                      <Button
-                        onClick={() => pauseStream(BigInt(streamId!))}
-                        disabled={isPausing}
-                        variant="outline"
-                      >
-                        {isPausing ? (
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        ) : (
-                          <Pause className="w-4 h-4 mr-2" />
-                        )}
-                        Pause Stream
-                      </Button>
-                    )}
-                    {status === 1 && (
-                      <Button
-                        onClick={() => resumeStream(BigInt(streamId!))}
-                        disabled={isResuming}
-                        variant="outline"
-                      >
-                        {isResuming ? (
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        ) : (
-                          <Play className="w-4 h-4 mr-2" />
-                        )}
-                        Resume Stream
-                      </Button>
-                    )}
-                    {status === 1 && (
-                      <Button
-                        onClick={handleCancel}
-                        disabled={isCancelling || cancelling}
-                        variant="destructive"
-                      >
-                        {isCancelling || cancelling ? (
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        ) : (
-                          <XCircle className="w-4 h-4 mr-2" />
-                        )}
-                        Cancel Stream
-                      </Button>
-                    )}
+                    <Button
+                      onClick={() => resumeStream(BigInt(streamId!))}
+                      disabled={isResuming}
+                      variant="outline"
+                    >
+                      {isResuming ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <Play className="w-4 h-4 mr-2" />
+                      )}
+                      Resume Stream
+                    </Button>
+                    <Button
+                      onClick={handleCancel}
+                      disabled={isCancelling || cancelling}
+                      variant="destructive"
+                    >
+                      {isCancelling || cancelling ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <XCircle className="w-4 h-4 mr-2" />
+                      )}
+                      Cancel Stream
+                    </Button>
                   </>
                 )}
 
-                {isBeneficiary && status === 0 && (
+                {isBeneficiary && !isFinished && (
                   <>
                     {claimable && Number(claimable) > 0 ? (
                       <Button
