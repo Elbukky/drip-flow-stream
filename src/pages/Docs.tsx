@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
+import { StreamDiagram } from "@/components/StreamDiagram";
 
 const docs = [
   {
@@ -15,6 +16,7 @@ const docs = [
     items: [
       { label: "Single Stream", id: "single" },
       { label: "Multi Stream", id: "multi" },
+      { label: "Custom Split", id: "multi-custom" },
       { label: "Interval Settings", id: "interval" },
       { label: "Parameters Explained", id: "params" },
     ]
@@ -83,7 +85,8 @@ Required fields:
 
 Example: Stream 1000 USDC over 30 days, unlocking every hour.
 
-The beneficiary can claim accumulated tokens at any time.`
+The beneficiary can claim accumulated tokens at any time.`,
+    showDiagram: "single"
   },
   {
     id: "multi",
@@ -96,7 +99,18 @@ Each beneficiary gets their own independent stream with:
 
 You can set custom percentages or split evenly.
 
-Example: Stream 10,000 USDC to 5 team members over 12 months.`
+Example: Stream 10,000 USDC to 5 team members over 12 months.`,
+    showDiagram: "multi-even"
+  },
+  {
+    id: "multi-custom",
+    title: "CUSTOM SPLIT",
+    content: `When creating a multi-stream, you can specify exact percentages for each beneficiary.
+
+The percentages must sum to exactly 100% (10000 basis points).
+
+Example: Team gets 50%, Investor gets 30%, Advisor gets 20%.`,
+    showDiagram: "multi-custom"
   },
   {
     id: "interval",
@@ -278,6 +292,9 @@ export default function DocsPage() {
                     </p>
                   ))}
                 </div>
+                {section.showDiagram === "single" && <StreamDiagram type="single" />}
+                {section.showDiagram === "multi-even" && <StreamDiagram type="multi-even" />}
+                {section.showDiagram === "multi-custom" && <StreamDiagram type="multi-custom" />}
               </section>
             ))}
           </div>
