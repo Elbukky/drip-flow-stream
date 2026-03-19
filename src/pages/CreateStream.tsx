@@ -128,10 +128,7 @@ function SingleStreamForm() {
             </div>
             <Button
               onClick={() => {
-                setCreatedStreamId(null);
-                setBeneficiary("");
-                setAmount("");
-                setDurationValue("");
+                window.location.reload();
               }}
               className="mt-4"
             >
@@ -406,13 +403,7 @@ function MultiStreamForm() {
             </div>
             <Button
               onClick={() => {
-                setCreatedStreamIds([]);
-                setTotalAmount("");
-                setDurationValue("");
-                setBeneficiaries([
-                  { id: "1", address: "", percentage: "" },
-                  { id: "2", address: "", percentage: "" },
-                ]);
+                window.location.reload();
               }}
               className="mt-4"
             >
