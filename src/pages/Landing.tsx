@@ -44,7 +44,7 @@ const Landing = () => {
             <h1 className="font-mono-display text-xl text-primary font-bold tracking-tighter">
               DRIP<span className="text-foreground">FLOW</span>
             </h1>
-            <span className="label-micro mt-1">PROTOCOL</span>
+            <span className="label-micro mt-1 hidden sm:block">PROTOCOL</span>
           </div>
           <motion.button
             whileTap={{ scale: 0.97 }}
