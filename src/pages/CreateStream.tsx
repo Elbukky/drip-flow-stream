@@ -26,7 +26,7 @@ export default function CreateStreamPage() {
         </div>
 
         <Tabs defaultValue="single" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
+          <TabsList className="mb-8">
             <TabsTrigger value="single">Single Stream</TabsTrigger>
             <TabsTrigger value="multi">Multi Stream</TabsTrigger>
           </TabsList>
