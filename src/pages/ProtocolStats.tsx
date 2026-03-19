@@ -6,7 +6,9 @@ import {
   USDC_SYMBOL,
   formatUSDC,
   formatUSDCCompact,
+  TOKEN_STREAM_ADDRESS,
 } from "@/lib/contracts";
+import { toast } from "sonner";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
 import { GlobalStatsBar } from "@/components/GlobalStatsBar";
 
@@ -185,36 +187,41 @@ export default function ProtocolStatsPage() {
               <CardTitle>Protocol Information</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <p className="label-micro mb-1">Contract Address</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 py-2 border-b sm:border-0">
+                  <p className="label-micro text-muted-foreground">Contract</p>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm">0xb53879ADa9756D45D874b6c54d06052698CeDfC9</span>
+                    <span className="font-mono text-xs sm:text-sm break-all">{TOKEN_STREAM_ADDRESS}</span>
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText("0xb53879ADa9756D45D874b6c54d06052698CeDfC9");
+                        navigator.clipboard.writeText(TOKEN_STREAM_ADDRESS);
+                        toast.success("Copied!");
                       }}
-                      className="text-muted-foreground hover:text-foreground"
+                      className="text-muted-foreground hover:text-foreground shrink-0"
                     >
                       <Copy className="w-3 h-3" />
                     </button>
                   </div>
                 </div>
-                <div>
-                  <p className="label-micro mb-1">Network</p>
-                  <p className="font-mono text-sm">Arc Testnet (Chain ID: 5042002)</p>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 py-2 border-b sm:border-0">
+                  <p className="label-micro text-muted-foreground">Network</p>
+                  <p className="font-mono text-xs sm:text-sm">Arc Testnet</p>
                 </div>
-                <div>
-                  <p className="label-micro mb-1">Native Token</p>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 py-2 border-b sm:border-0">
+                  <p className="label-micro text-muted-foreground">Chain ID</p>
+                  <p className="font-mono text-xs sm:text-sm">5042002</p>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 py-2 border-b sm:border-0">
+                  <p className="label-micro text-muted-foreground">Token</p>
                   <div className="flex items-center gap-2">
                     <img src={USDC_LOGO} alt="USDC" className="w-4 h-4 rounded-full" />
-                    <span className="font-mono text-sm">{USDC_SYMBOL}</span>
-                    <span className="text-xs text-muted-foreground">(address(0))</span>
+                    <span className="font-mono text-xs sm:text-sm">USDC</span>
+                    <span className="text-[10px] sm:text-xs text-muted-foreground">(Native)</span>
                   </div>
                 </div>
-                <div>
-                  <p className="label-micro mb-1">Decimals</p>
-                  <p className="font-mono text-sm">18</p>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 py-2">
+                  <p className="label-micro text-muted-foreground">Decimals</p>
+                  <p className="font-mono text-xs sm:text-sm">18</p>
                 </div>
               </div>
             </CardContent>
