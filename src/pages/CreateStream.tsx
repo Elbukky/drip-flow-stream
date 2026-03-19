@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Plus, Trash2, Loader2, CheckCircle2, Copy, ExternalLink } from "lucide-react";
-import { USDC_LOGO, USDC_SYMBOL, isValidAddress, toDurationSeconds, getExplorerUrl } from "@/lib/contracts";
+import { USDC_LOGO, USDC_SYMBOL, isValidAddress, toDurationSeconds, getExplorerUrl, INTERVAL_OPTIONS } from "@/lib/contracts";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
 
 export default function CreateStreamPage() {
@@ -53,7 +53,11 @@ function SingleStreamForm() {
   const [amount, setAmount] = useState("");
   const [durationValue, setDurationValue] = useState("");
   const [durationUnit, setDurationUnit] = useState<"seconds" | "minutes" | "hours" | "days">("days");
+  const [interval, setInterval] = useState<number>(3600);
   const [createdStreamId, setCreatedStreamId] = useState<string | null>(null);
+
+  const durationSeconds = toDurationSeconds(parseFloat(durationValue) || 0, durationUnit);
+  const intervalError = interval > durationSeconds && durationSeconds > 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,9 +84,14 @@ function SingleStreamForm() {
       return;
     }
     
-    const durationSeconds = BigInt(toDurationSeconds(numDuration, durationUnit));
+    if (interval > durationSeconds) {
+      toast.error("Unlock frequency cannot exceed total duration");
+      return;
+    }
     
-    createStream(beneficiary as `0x${string}`, amount, durationSeconds);
+    const duration = BigInt(durationSeconds);
+    
+    createStream(beneficiary as `0x${string}`, amount, duration, BigInt(interval));
   };
 
   if (isConfirmed && txHash) {
@@ -197,6 +206,30 @@ function SingleStreamForm() {
             </div>
           </div>
 
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Unlock Frequency</label>
+            <Select
+              value={interval.toString()}
+              onValueChange={(v) => setInterval(Number(v))}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {INTERVAL_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value.toString()}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {intervalError && (
+              <p className="text-xs text-red-500 mt-1">
+                Unlock frequency cannot exceed total duration
+              </p>
+            )}
+          </div>
+
           {error && (
             <div className="p-3 bg-destructive/10 text-destructive text-sm rounded">
               {error.message || "Transaction failed"}
@@ -245,6 +278,7 @@ function MultiStreamForm() {
   const [totalAmount, setTotalAmount] = useState("");
   const [durationValue, setDurationValue] = useState("");
   const [durationUnit, setDurationUnit] = useState<"seconds" | "minutes" | "hours" | "days">("days");
+  const [interval, setInterval] = useState<number>(3600);
   const [distributionMode, setDistributionMode] = useState<"even" | "custom">("even");
   const [beneficiaries, setBeneficiaries] = useState<BeneficiaryRow[]>([
     { id: "1", address: "", percentage: "" },
@@ -276,6 +310,9 @@ function MultiStreamForm() {
     return sum + pct;
   }, 0);
 
+  const durationSeconds = toDurationSeconds(parseFloat(durationValue) || 0, durationUnit);
+  const intervalError = interval > durationSeconds && durationSeconds > 0;
+
   const isValid = () => {
     if (!isConnected) return false;
     
@@ -284,6 +321,8 @@ function MultiStreamForm() {
     
     const numDuration = parseFloat(durationValue);
     if (isNaN(numDuration) || numDuration <= 0) return false;
+    
+    if (interval > durationSeconds) return false;
     
     for (const b of beneficiaries) {
       if (!isValidAddress(b.address)) return false;
@@ -317,7 +356,7 @@ function MultiStreamForm() {
       return;
     }
     
-    const durationSeconds = BigInt(toDurationSeconds(parseFloat(durationValue), durationUnit));
+    const duration = BigInt(durationSeconds);
     
     let percentages: bigint[] = [];
     if (distributionMode === "custom") {
@@ -326,7 +365,7 @@ function MultiStreamForm() {
         .map(b => BigInt(Math.round(parseFloat(b.percentage) * 100)));
     }
     
-    createMultiStream(validAddresses, totalAmount, durationSeconds, percentages);
+    createMultiStream(validAddresses, totalAmount, duration, BigInt(interval), percentages);
   };
 
   if (isConfirmed && txHash) {
@@ -437,6 +476,30 @@ function MultiStreamForm() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Unlock Frequency</label>
+              <Select
+                value={interval.toString()}
+                onValueChange={(v) => setInterval(Number(v))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {INTERVAL_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value.toString()}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {intervalError && (
+                <p className="text-xs text-red-500 mt-1">
+                  Unlock frequency cannot exceed total duration
+                </p>
+              )}
             </div>
           </div>
 

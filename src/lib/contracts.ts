@@ -17,7 +17,8 @@ export const TOKEN_STREAM_ABI = [
       { "name": "beneficiary", "type": "address" },
       { "name": "token", "type": "address" },
       { "name": "amount", "type": "uint256" },
-      { "name": "duration", "type": "uint256" }
+      { "name": "duration", "type": "uint256" },
+      { "name": "interval", "type": "uint256" }
     ],
     "outputs": [{ "name": "streamId", "type": "uint256" }],
     "stateMutability": "payable"
@@ -30,6 +31,7 @@ export const TOKEN_STREAM_ABI = [
       { "name": "token", "type": "address" },
       { "name": "totalAmount", "type": "uint256" },
       { "name": "duration", "type": "uint256" },
+      { "name": "interval", "type": "uint256" },
       { "name": "percentages", "type": "uint256[]" }
     ],
     "outputs": [{ "name": "streamIds", "type": "uint256[]" }],
@@ -92,6 +94,7 @@ export const TOKEN_STREAM_ABI = [
         { "name": "token", "type": "address" },
         { "name": "startTime", "type": "uint32" },
         { "name": "duration", "type": "uint32" },
+        { "name": "interval", "type": "uint32" },
         { "name": "status", "type": "uint8" },
         { "name": "pausedAt", "type": "uint128" },
         { "name": "accPausedDuration", "type": "uint128" },
@@ -415,6 +418,7 @@ export const TOKEN_STREAM_ABI = [
       { "name": "token", "type": "address", "indexed": false },
       { "name": "amount", "type": "uint256", "indexed": false },
       { "name": "duration", "type": "uint256", "indexed": false },
+      { "name": "interval", "type": "uint256", "indexed": false },
       { "name": "startTime", "type": "uint256", "indexed": false }
     ]
   },
@@ -494,6 +498,7 @@ export interface Stream {
   token: string;
   startTime: bigint;
   duration: bigint;
+  interval: bigint;
   status: number;
   pausedAt: bigint;
   accPausedDuration: bigint;
@@ -608,4 +613,49 @@ export const getExplorerUrl = (txHash: string): string => {
 
 export const getStreamUrl = (streamId: string | number): string => {
   return `/app/stream/${streamId}`;
+};
+
+export const INTERVAL_OPTIONS = [
+  { label: "Every Second", value: 1 },
+  { label: "Every Minute", value: 60 },
+  { label: "Every Hour", value: 3600 },
+  { label: "Every Day", value: 86400 },
+];
+
+export const getIntervalLabel = (interval: bigint | number): string => {
+  const val = typeof interval === "bigint" ? Number(interval) : interval;
+  if (val === 1) return "Every Second";
+  if (val === 60) return "Every Minute";
+  if (val === 3600) return "Every Hour";
+  if (val === 86400) return "Every Day";
+  return `Every ${val}s`;
+};
+
+export const getPerUnlockAmount = (totalAmount: bigint, duration: bigint, interval: bigint): bigint => {
+  if (duration === 0n || interval === 0n) return 0n;
+  const totalIntervals = duration / interval;
+  if (totalIntervals === 0n) return 0n;
+  return totalAmount / totalIntervals;
+};
+
+export const getNextUnlockIn = (startTime: bigint, interval: bigint): number => {
+  const now = Math.floor(Date.now() / 1000);
+  const elapsed = now - Number(startTime);
+  const intervalNum = Number(interval);
+  if (intervalNum === 0) return 0;
+  const timeIntoInterval = elapsed % intervalNum;
+  return intervalNum - timeIntoInterval;
+};
+
+export const getIntervalsCompleted = (startTime: bigint, interval: bigint): bigint => {
+  const now = Math.floor(Date.now() / 1000);
+  const elapsed = now - Number(startTime);
+  const intervalNum = Number(interval);
+  if (intervalNum === 0) return 0n;
+  return BigInt(Math.floor(elapsed / intervalNum));
+};
+
+export const getTotalIntervals = (duration: bigint, interval: bigint): bigint => {
+  if (interval === 0n) return 0n;
+  return duration / interval;
 };

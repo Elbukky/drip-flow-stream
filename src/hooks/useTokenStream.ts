@@ -379,6 +379,7 @@ export function useStream(streamId: bigint | number) {
       token: r.token,
       startTime: BigInt(r.startTime.toString()),
       duration: BigInt(r.duration.toString()),
+      interval: BigInt(r.interval?.toString() ?? '3600'),
       status: Number(r.status),
       pausedAt: BigInt(r.pausedAt.toString()),
       accPausedDuration: BigInt(r.accPausedDuration.toString()),
@@ -743,13 +744,13 @@ export function useCreateStream() {
   const { writeContract, data: txHash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
-  const createStream = (beneficiary: `0x${string}`, amount: string, duration: bigint) => {
+  const createStream = (beneficiary: `0x${string}`, amount: string, duration: bigint, interval: bigint) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (writeContract as any)({
       address: CONTRACT_CONFIG.address,
       abi: TOKEN_STREAM_ABI,
       functionName: "createStream",
-      args: [beneficiary, USDC_ADDRESS, parseUSDC(amount), duration],
+      args: [beneficiary, USDC_ADDRESS, parseUSDC(amount), duration, interval],
       value: parseUSDC(amount),
     });
   };
@@ -768,13 +769,13 @@ export function useCreateMultiStream() {
   const { writeContract, data: txHash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
-  const createMultiStream = (beneficiaries: `0x${string}`[], totalAmount: string, duration: bigint, percentages: bigint[]) => {
+  const createMultiStream = (beneficiaries: `0x${string}`[], totalAmount: string, duration: bigint, interval: bigint, percentages: bigint[]) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (writeContract as any)({
       address: CONTRACT_CONFIG.address,
       abi: TOKEN_STREAM_ABI,
       functionName: "createMultiStream",
-      args: [beneficiaries, USDC_ADDRESS, parseUSDC(totalAmount), duration, percentages],
+      args: [beneficiaries, USDC_ADDRESS, parseUSDC(totalAmount), duration, interval, percentages],
       value: parseUSDC(totalAmount),
     });
   };
