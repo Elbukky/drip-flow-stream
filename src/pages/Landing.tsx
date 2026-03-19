@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useProtocolSummary, useTokenStats } from "@/hooks/useTokenStream";
 import { formatUSDCCompact } from "@/lib/contracts";
+import { useEffect, useState } from "react";
 
 const LOGO = "/logo.png";
 
@@ -28,19 +29,83 @@ const features = [
   },
 ];
 
+interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  size: number;
+  speed: number;
+  opacity: number;
+}
+
+const HeroParticles = () => {
+  const [particles, setParticles] = useState<Particle[]>([]);
+
+  useEffect(() => {
+    const newParticles: Particle[] = [];
+    for (let i = 0; i < 30; i++) {
+      newParticles.push({
+        id: i,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        size: Math.random() * 4 + 2,
+        speed: Math.random() * 20 + 10,
+        opacity: Math.random() * 0.5 + 0.1,
+      });
+    }
+    setParticles(newParticles);
+  }, []);
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {particles.map((particle) => (
+        <motion.div
+          key={particle.id}
+          className="absolute rounded-full bg-primary"
+          style={{
+            left: `${particle.x}%`,
+            top: `${particle.y}%`,
+            width: particle.size,
+            height: particle.size,
+            opacity: particle.opacity,
+          }}
+          animate={{
+            y: [-20, 20],
+            opacity: [particle.opacity * 0.5, particle.opacity],
+          }}
+          transition={{
+            duration: particle.speed,
+            repeat: Infinity,
+            repeatType: "reverse",
+            ease: "easeInOut",
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
 const Landing = () => {
   const navigate = useNavigate();
   const { data: protocolSummary } = useProtocolSummary();
   const { data: tokenStats } = useTokenStats();
+  const [dotVisible, setDotVisible] = useState(true);
 
   const totalStreams = protocolSummary ? Number(protocolSummary.totalStreams) : 0;
   const activeStreams = protocolSummary ? Number(protocolSummary.active) : 0;
   const totalDeposited = tokenStats ? tokenStats.totalDeposited : 0n;
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDotVisible((v) => !v);
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Nav */}
-      <header className="border-b border-border">
+      <header className="border-b border-border relative z-10">
         <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3 sm:gap-4">
             <img src={LOGO} alt="DripFlow" className="w-8 h-8 sm:w-10 sm:h-10" />
@@ -60,15 +125,32 @@ const Landing = () => {
       </header>
 
       {/* Hero */}
-      <section className="border-b border-border">
-        <div className="max-w-[1400px] mx-auto px-6 py-24 lg:py-32">
+      <section className="border-b border-border relative overflow-hidden">
+        {/* Gradient background */}
+        <div 
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: "radial-gradient(ellipse at 30% 20%, rgba(249, 115, 22, 0.15) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, rgba(249, 115, 22, 0.1) 0%, transparent 50%)",
+          }}
+        />
+        
+        {/* Particles */}
+        <HeroParticles />
+
+        <div className="max-w-[1400px] mx-auto px-6 py-24 lg:py-32 relative z-10">
           <div className="max-w-3xl">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <div className="label-micro mb-6">[ MONEY_STREAMING_PROTOCOL ]</div>
+              <div className="label-micro mb-6 flex items-center gap-2">
+                <span 
+                  className="inline-block w-2 h-2 rounded-full bg-primary transition-opacity duration-200"
+                  style={{ opacity: dotVisible ? 1 : 0.3 }}
+                />
+                [ MONEY_STREAMING_PROTOCOL ]
+              </div>
               <h2 className="font-mono-display text-5xl lg:text-7xl text-foreground font-bold tracking-tighter leading-[0.9] mb-6">
                 CAPITAL IN<br />
                 <span className="text-primary">FLOW STATE</span>
