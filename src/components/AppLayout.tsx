@@ -4,7 +4,8 @@ import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Plus, List, BarChart3, Menu, X, FileText } from "lucide-react";
 import { WalletDisplay } from "@/components/WalletDisplay";
-import { USDC_LOGO } from "@/lib/contracts";
+
+const LOGO = "/logo.png";
 
 export function AppHeader() {
   const { isConnected } = useAccount();
@@ -19,7 +20,7 @@ export function AppHeader() {
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
             <Link to="/" className="flex items-center gap-2 sm:gap-3">
-              <img src={USDC_LOGO} alt="DripFlow" className="w-7 h-7 sm:w-8 sm:h-8" />
+              <img src={LOGO} alt="DripFlow" className="w-7 h-7 sm:w-8 sm:h-8" />
               <h1 className="font-mono-display text-lg sm:text-xl text-primary font-bold tracking-tighter">
                 DRIP<span className="text-foreground">FLOW</span>
               </h1>
