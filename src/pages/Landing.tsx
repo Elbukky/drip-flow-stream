@@ -49,7 +49,7 @@ const Landing = () => {
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => navigate("/app")}
-            className="btn-primary"
+            className="btn-primary text-[10px] sm:text-xs py-2 sm:py-4 px-3 sm:px-6"
           >
             [ LAUNCH_APP ]
           </motion.button>
@@ -239,7 +239,7 @@ const Landing = () => {
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => navigate("/app")}
-            className="btn-primary text-sm py-5 px-12"
+            className="btn-primary text-xs sm:text-sm py-3 sm:py-5 px-6 sm:px-12"
           >
             [ LAUNCH_APP ]
           </motion.button>
