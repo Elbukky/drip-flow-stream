@@ -18,6 +18,11 @@ import {
   formatDate,
   truncateAddress,
   getExplorerUrl,
+  getIntervalLabel,
+  getPerUnlockAmount,
+  getNextUnlockIn,
+  getIntervalsCompleted,
+  getTotalIntervals,
 } from "@/lib/contracts";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
 
@@ -34,6 +39,8 @@ export default function StreamDetailPage() {
   const { cancelStream, isPending: isCancelling, isConfirmed: cancelConfirmed } = useCancelStream();
   
   const [cancelling, setCancelling] = useState(false);
+  const [nextUnlock, setNextUnlock] = useState<number>(0);
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   useEffect(() => {
     if (claimConfirmed) {
@@ -41,6 +48,18 @@ export default function StreamDetailPage() {
       refetch();
     }
   }, [claimConfirmed, refetch]);
+
+  useEffect(() => {
+    if (stream && stream.status === 0) {
+      const updateNextUnlock = () => {
+        const next = getNextUnlockIn(stream.startTime, stream.interval);
+        setNextUnlock(next);
+      };
+      updateNextUnlock();
+      const interval = setInterval(updateNextUnlock, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [stream]);
 
   useEffect(() => {
     if (pauseConfirmed) {
@@ -74,9 +93,11 @@ export default function StreamDetailPage() {
   }, [stream, refetch]);
 
   const handleCancel = () => {
-    if (!confirm("Are you sure you want to cancel this stream? Funds will be distributed between you and the beneficiary.")) {
-      return;
-    }
+    setShowCancelModal(true);
+  };
+
+  const confirmCancel = () => {
+    setShowCancelModal(false);
     setCancelling(true);
     cancelStream(BigInt(streamId!));
   };
@@ -187,6 +208,40 @@ export default function StreamDetailPage() {
 
           <Card>
             <CardHeader>
+              <CardTitle>Unlock Schedule</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p className="label-micro mb-1">Frequency</p>
+                  <p className="font-mono-display text-lg">
+                    {getIntervalLabel(stream.interval)}
+                  </p>
+                </div>
+                <div>
+                  <p className="label-micro mb-1">Amount Per Unlock</p>
+                  <p className="font-mono-display text-lg text-primary">
+                    {formatUSDC(getPerUnlockAmount(stream.totalAmount, stream.duration, stream.interval))} USDC
+                  </p>
+                </div>
+                <div>
+                  <p className="label-micro mb-1">Next Unlock In</p>
+                  <p className="font-mono-display text-lg text-green-500">
+                    {status === 0 ? formatTime(nextUnlock) : "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="label-micro mb-1">Intervals</p>
+                  <p className="font-mono-display text-lg">
+                    {getIntervalsCompleted(stream.startTime, stream.interval).toString()} / {getTotalIntervals(stream.duration, stream.interval).toString()}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Details</CardTitle>
             </CardHeader>
             <CardContent>
@@ -234,6 +289,7 @@ export default function StreamDetailPage() {
                 <div>
                   <p className="label-micro mb-1">Duration</p>
                   <p className="font-mono text-sm">{formatTime(Number(stream.duration))}</p>
+                  <p className="text-xs text-muted-foreground">{getIntervalLabel(stream.interval)}</p>
                 </div>
                 <div>
                   <p className="label-micro mb-1">Total Amount</p>
@@ -358,6 +414,45 @@ export default function StreamDetailPage() {
           </Card>
         </div>
       </div>
+
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowCancelModal(false)}>
+          <div className="bg-card border rounded-lg p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4">Cancel Stream #{streamId}</h3>
+            <p className="text-sm text-muted-foreground mb-4">Cancelling will:</p>
+            <div className="space-y-2 text-sm mb-6">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Send to beneficiary:</span>
+                <span className="font-mono text-green-500">{claimable ? formatUSDC(claimable) : "0.00"} USDC</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Return to you:</span>
+                <span className="font-mono text-red-400">{remaining ? formatUSDC(remaining) : "0.00"} USDC</span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mb-6">This cannot be undone.</p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowCancelModal(false)}
+              >
+                Go Back
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={confirmCancel}
+                disabled={isCancelling || cancelling}
+              >
+                {(isCancelling || cancelling) ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Cancel Stream
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AppFooter />
     </div>
   );

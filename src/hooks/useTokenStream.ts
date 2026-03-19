@@ -878,22 +878,18 @@ export function useResumeStream() {
 }
 
 export function useCancelStream() {
-  const { address } = useAccount();
   const queryClient = useQueryClient();
   const { writeContract, data: txHash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
   const cancelStream = (streamId: bigint) => {
-    if (!address) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    writeContract({
+    (writeContract as any)({
       address: CONTRACT_CONFIG.address,
-      abi: TOKEN_STREAM_ABI as any,
+      abi: TOKEN_STREAM_ABI,
       functionName: "cancelStream",
       args: [streamId],
-      account: address,
-      chain: undefined,
-    } as any);
+    });
   };
 
   if (isConfirmed && txHash) {

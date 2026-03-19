@@ -27,6 +27,10 @@ import {
   formatUSDC,
   truncateAddress,
   getStreamUrl,
+  getIntervalLabel,
+  getPerUnlockAmount,
+  getNextUnlockIn,
+  formatTime,
 } from "@/lib/contracts";
 import { USDCFlow } from "@/components/USDCFlow";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
@@ -250,8 +254,9 @@ function StreamCard({
   isClaiming: boolean;
   onClick: () => void;
 }) {
-  const { stream, claimable, progress, isLoading } = useStream(streamId);
+  const { stream, claimable, progress, isLoading, refetch } = useStream(streamId);
   const [liveClaimable, setLiveClaimable] = useState<bigint | undefined>();
+  const [nextUnlock, setNextUnlock] = useState<number>(0);
 
   useEffect(() => {
     if (claimable !== undefined) {
@@ -262,12 +267,25 @@ function StreamCard({
   useEffect(() => {
     if (!stream || stream.status !== 0) return;
 
-    const interval = setInterval(() => {
-      // Just keep the current claimable, it will auto-refresh
-    }, 10000);
+    const updateNextUnlock = () => {
+      const next = getNextUnlockIn(stream.startTime, stream.interval);
+      setNextUnlock(next);
+    };
+
+    updateNextUnlock();
+    const interval = setInterval(updateNextUnlock, 1000);
 
     return () => clearInterval(interval);
   }, [stream]);
+
+  useEffect(() => {
+    if (!stream || stream.status !== 0) return;
+    if (nextUnlock === 1) {
+      setTimeout(() => {
+        refetch();
+      }, 1000);
+    }
+  }, [nextUnlock, stream, refetch]);
 
   if (isLoading || !stream) {
     return (
@@ -283,6 +301,7 @@ function StreamCard({
 
   const status = stream.status;
   const progressPercent = progress ? Number(progress) / 100 : 0;
+  const perUnlock = getPerUnlockAmount(stream.totalAmount, stream.duration, stream.interval);
 
   return (
     <Card className="cursor-pointer hover:border-primary/50 transition-colors">
@@ -318,7 +337,22 @@ function StreamCard({
 
         <USDCFlow progress={progressPercent} totalAmount={formatUSDC(stream.totalAmount)} paused={status === 1} />
 
-        <div className="flex flex-wrap justify-between gap-2 text-[10px] sm:text-xs mt-3 mb-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[10px] sm:text-xs mt-3 mb-3">
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Unlocks</span>
+            <span className="text-foreground">{getIntervalLabel(stream.interval)}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Next Unlock</span>
+            <span className="text-primary font-medium">{status === 0 ? formatTime(nextUnlock) : "-"}</span>
+          </div>
+          <div className="flex flex-col sm:col-span-1">
+            <span className="text-muted-foreground">Per Unlock</span>
+            <span className="text-foreground">{formatUSDC(perUnlock)} USDC</span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap justify-between gap-2 text-[10px] sm:text-xs mb-3">
           <span className="text-muted-foreground">
             Claimed: {formatUSDC(stream.claimed)} / {formatUSDC(stream.totalAmount)}
           </span>
@@ -473,7 +507,23 @@ function CreatorStreamCard({
   isCancelling: boolean;
   onClick: () => void;
 }) {
-  const { stream, progress, isLoading } = useStream(streamId);
+  const { stream, claimable, remaining, progress, isLoading } = useStream(streamId);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [nextUnlock, setNextUnlock] = useState<number>(0);
+
+  useEffect(() => {
+    if (!stream || stream.status !== 0) return;
+
+    const updateNextUnlock = () => {
+      const next = getNextUnlockIn(stream.startTime, stream.interval);
+      setNextUnlock(next);
+    };
+
+    updateNextUnlock();
+    const interval = setInterval(updateNextUnlock, 1000);
+
+    return () => clearInterval(interval);
+  }, [stream]);
 
   if (isLoading || !stream) {
     return (
@@ -489,6 +539,7 @@ function CreatorStreamCard({
 
   const status = stream.status;
   const progressPercent = progress ? Number(progress) / 100 : 0;
+  const perUnlock = getPerUnlockAmount(stream.totalAmount, stream.duration, stream.interval);
 
   return (
     <Card className="cursor-pointer hover:border-primary/50 transition-colors">
@@ -523,6 +574,21 @@ function CreatorStreamCard({
         </div>
 
         <USDCFlow progress={progressPercent} totalAmount={formatUSDC(stream.totalAmount)} paused={status === 1} />
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[10px] sm:text-xs mt-3 mb-3">
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Unlocks</span>
+            <span className="text-foreground">{getIntervalLabel(stream.interval)}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Next Unlock</span>
+            <span className="text-primary font-medium">{status === 0 ? formatTime(nextUnlock) : "-"}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-muted-foreground">Per Unlock</span>
+            <span className="text-foreground">{formatUSDC(perUnlock)} USDC</span>
+          </div>
+        </div>
 
         <div className="flex flex-wrap justify-between gap-2 text-[10px] sm:text-xs mt-3 mb-3">
           <span className="text-muted-foreground">
@@ -561,10 +627,9 @@ function CreatorStreamCard({
                 size="sm"
                 variant="destructive"
                 className="text-[10px] sm:text-xs"
-                onClick={() => {
-                  if (confirm("Cancel this stream? Funds will be distributed between you and beneficiary.")) {
-                    onCancel(streamId);
-                  }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowCancelModal(true);
                 }}
                 disabled={isCancelling}
               >
@@ -581,6 +646,47 @@ function CreatorStreamCard({
           )}
         </div>
       </CardContent>
+
+      {showCancelModal && stream && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowCancelModal(false)}>
+          <div className="bg-card border rounded-lg p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold mb-4">Cancel Stream #{streamId.toString()}</h3>
+            <p className="text-sm text-muted-foreground mb-4">Cancelling will:</p>
+            <div className="space-y-2 text-sm mb-6">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Send to beneficiary:</span>
+                <span className="font-mono text-green-500">{claimable ? formatUSDC(claimable) : "0.00"} USDC</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Return to you:</span>
+                <span className="font-mono text-red-400">{remaining ? formatUSDC(remaining) : "0.00"} USDC</span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mb-6">This cannot be undone.</p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowCancelModal(false)}
+              >
+                Go Back
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={() => {
+                  setShowCancelModal(false);
+                  onCancel(streamId);
+                }}
+                disabled={isCancelling}
+              >
+                {isCancelling ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Cancel Stream
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
