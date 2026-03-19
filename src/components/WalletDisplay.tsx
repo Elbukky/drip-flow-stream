@@ -82,10 +82,10 @@ export function WalletDisplay() {
 
                   <button
                     onClick={openAccountModal}
-                    className="flex items-center gap-2 px-3 py-2 bg-secondary hover:bg-muted border border-border transition-colors"
+                    className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-secondary hover:bg-muted border border-border transition-colors"
                   >
                     <div className="w-2 h-2 rounded-full bg-green-500" />
-                    <span className="font-mono text-xs">
+                    <span className="font-mono text-[10px] sm:text-xs">
                       {account.displayBalance && balance ? (
                         <>{formatBalance(balance.value, balance.decimals)} {balance.symbol}</>
                       ) : (

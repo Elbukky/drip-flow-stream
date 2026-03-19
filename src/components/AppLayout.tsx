@@ -1,57 +1,110 @@
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
-import { Plus, List, BarChart3 } from "lucide-react";
+import { Plus, List, BarChart3, Menu, X, FileText } from "lucide-react";
 import { WalletDisplay } from "@/components/WalletDisplay";
 
 export function AppHeader() {
   const { isConnected } = useAccount();
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
 
   return (
-    <header className="border-b border-border sticky top-0 z-10 bg-background">
-      <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/">
-            <h1 className="font-mono-display text-xl text-primary font-bold tracking-tighter">
-              DRIP<span className="text-foreground">FLOW</span>
-            </h1>
-          </Link>
-          <span className="label-micro mt-1 hidden sm:block">v1.0.0</span>
+    <>
+      <header className="border-b border-border sticky top-0 z-10 bg-background">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Link to="/">
+              <h1 className="font-mono-display text-lg sm:text-xl text-primary font-bold tracking-tighter">
+                DRIP<span className="text-foreground">FLOW</span>
+              </h1>
+            </Link>
+            <span className="label-micro mt-1 hidden sm:block">v1.0.0</span>
+          </div>
+          
+          <div className="flex items-center gap-2 sm:gap-3">
+            {isConnected && (
+              <>
+                {/* Desktop nav */}
+                <nav className="hidden lg:flex items-center gap-1">
+                  <NavLink to="/app/create" icon={<Plus className="w-4 h-4" />}>
+                    Create
+                  </NavLink>
+                  <NavLink to="/app/streams" icon={<List className="w-4 h-4" />}>
+                    My Streams
+                  </NavLink>
+                  <NavLink to="/app/protocol" icon={<BarChart3 className="w-4 h-4" />}>
+                    Protocol
+                  </NavLink>
+                  <NavLink to="/docs" icon={<FileText className="w-4 h-4" />}>
+                    Docs
+                  </NavLink>
+                </nav>
+
+                {/* Mobile hamburger */}
+                <button
+                  onClick={toggleMobileMenu}
+                  className="lg:hidden p-2 hover:bg-muted rounded"
+                  aria-label="Toggle menu"
+                >
+                  {mobileMenuOpen ? (
+                    <X className="w-5 h-5" />
+                  ) : (
+                    <Menu className="w-5 h-5" />
+                  )}
+                </button>
+              </>
+            )}
+            <WalletDisplay />
+          </div>
         </div>
-        
-        <div className="flex items-center gap-3">
-          {isConnected && (
-            <nav className="hidden md:flex items-center gap-1 mr-4">
-              <NavLink to="/app/create" icon={<Plus className="w-4 h-4" />}>
-                Create
-              </NavLink>
-              <NavLink to="/app/streams" icon={<List className="w-4 h-4" />}>
+      </header>
+
+      {/* Mobile menu drawer */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-20 lg:hidden">
+          <div 
+            className="absolute inset-0 bg-black/50" 
+            onClick={() => setMobileMenuOpen(false)} 
+          />
+          <div className="absolute left-0 top-0 bottom-0 w-72 bg-background border-r border-border p-6 pt-20">
+            <nav className="flex flex-col gap-2">
+              <MobileNavLink 
+                to="/app/create" 
+                icon={<Plus className="w-5 h-5" />}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Create Stream
+              </MobileNavLink>
+              <MobileNavLink 
+                to="/app/streams" 
+                icon={<List className="w-5 h-5" />}
+                onClick={() => setMobileMenuOpen(false)}
+              >
                 My Streams
-              </NavLink>
-              <NavLink to="/app/protocol" icon={<BarChart3 className="w-4 h-4" />}>
+              </MobileNavLink>
+              <MobileNavLink 
+                to="/app/protocol" 
+                icon={<BarChart3 className="w-5 h-5" />}
+                onClick={() => setMobileMenuOpen(false)}
+              >
                 Protocol
-              </NavLink>
+              </MobileNavLink>
+              <MobileNavLink 
+                to="/docs" 
+                icon={<FileText className="w-5 h-5" />}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Documentation
+              </MobileNavLink>
             </nav>
-          )}
-          <WalletDisplay />
-        </div>
-      </div>
-      
-      {isConnected && (
-        <div className="md:hidden border-t border-border px-6 py-2 flex gap-2 overflow-x-auto">
-          <MobileNavLink to="/app/create" icon={<Plus className="w-4 h-4" />}>
-            Create
-          </MobileNavLink>
-          <MobileNavLink to="/app/streams" icon={<List className="w-4 h-4" />}>
-            Streams
-          </MobileNavLink>
-          <MobileNavLink to="/app/protocol" icon={<BarChart3 className="w-4 h-4" />}>
-            Protocol
-          </MobileNavLink>
+          </div>
         </div>
       )}
-    </header>
+    </>
   );
 }
 
@@ -84,21 +137,23 @@ function NavLink({
 function MobileNavLink({ 
   to, 
   children, 
-  icon 
+  icon,
+  onClick
 }: { 
   to: string; 
   children: React.ReactNode;
   icon?: React.ReactNode;
+  onClick?: () => void;
 }) {
   const location = useLocation();
   const isActive = location.pathname === to;
   
   return (
-    <Link to={to}>
+    <Link to={to} onClick={onClick}>
       <Button 
         variant={isActive ? "secondary" : "ghost"} 
-        size="sm"
-        className="gap-1.5 whitespace-nowrap"
+        size="lg"
+        className="w-full justify-start gap-3"
       >
         {icon}
         {children}
