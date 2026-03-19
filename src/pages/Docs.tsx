@@ -242,9 +242,9 @@ export default function DocsPage() {
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-[250px_1fr] gap-12">
+        <div className="grid lg:grid-cols-[250px_1fr] gap-8 lg:gap-12">
           {/* Sidebar */}
-          <nav className="space-y-6 lg:sticky lg:top-24 lg:h-fit">
+          <nav className="space-y-6 lg:sticky lg:top-24 lg:h-fit px-6 lg:px-0">
             {docs.map((section) => (
               <div key={section.title}>
                 <h3 className="label-micro text-primary mb-3">{section.title}</h3>
@@ -253,7 +253,7 @@ export default function DocsPage() {
                     <li key={item.id}>
                       <button
                         onClick={() => scrollToSection(item.id)}
-                        className="text-sm text-muted-foreground hover:text-foreground transition-colors text-left"
+                        className="text-sm text-muted-foreground hover:text-foreground transition-colors text-left pl-6 lg:pl-0"
                       >
                         {item.label}
                       </button>
