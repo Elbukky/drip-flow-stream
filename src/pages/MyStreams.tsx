@@ -338,7 +338,7 @@ function StreamCard({
           </div>
         </div>
 
-        <USDCFlow progress={progressPercent} totalAmount={stream.totalAmount} paused={status === 1} duration={stream.duration} interval={stream.interval} />
+        <USDCFlow progress={progressPercent} totalAmount={stream.totalAmount} paused={status === 1} duration={stream.duration} interval={stream.interval} startTime={stream.startTime} />
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[10px] sm:text-xs mt-3 mb-3">
           <div className="flex flex-col">
@@ -572,7 +572,7 @@ function CreatorStreamCard({
           </div>
         </div>
 
-        <USDCFlow progress={progressPercent} totalAmount={stream.totalAmount} paused={status === 1} duration={stream.duration} interval={stream.interval} />
+        <USDCFlow progress={progressPercent} totalAmount={stream.totalAmount} paused={status === 1} duration={stream.duration} interval={stream.interval} startTime={stream.startTime} />
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[10px] sm:text-xs mt-3 mb-3">
           <div className="flex flex-col">

@@ -7,13 +7,15 @@ interface USDCFlowProps {
   paused?: boolean;
   duration?: bigint;
   interval?: bigint;
+  startTime?: bigint;
 }
 
-export function USDCFlow({ progress, totalAmount, paused = false, duration, interval }: USDCFlowProps) {
+export function USDCFlow({ progress, totalAmount, paused = false, duration, interval, startTime }: USDCFlowProps) {
   const [particles, setParticles] = useState<Particle[]>([]);
   const [nextUnlockIn, setNextUnlockIn] = useState(0);
   
   const intervalSeconds = interval ? Number(interval) : 60;
+  const startTimestamp = startTime ? Number(startTime) : Math.floor(Date.now() / 1000);
   const perUnlock = duration && interval ? getPerUnlockAmount(BigInt(totalAmount.toString()), duration, interval) : null;
   
   useEffect(() => {
@@ -25,13 +27,10 @@ export function USDCFlow({ progress, totalAmount, paused = false, duration, inte
 
     const updateNextUnlock = () => {
       const now = Math.floor(Date.now() / 1000);
-      const secondsSinceStart = now % intervalSeconds;
-      const secondsUntilNext = intervalSeconds - secondsSinceStart;
-      setNextUnlockIn(secondsUntilNext);
+      const secondsSinceStart = now - startTimestamp;
+      const secondsUntilNext = intervalSeconds - (secondsSinceStart % intervalSeconds);
+      setNextUnlockIn(secondsUntilNext === intervalSeconds ? 0 : secondsUntilNext);
     };
-
-    updateNextUnlock();
-    const countdownInterval = setInterval(updateNextUnlock, 1000);
 
     const createParticleBurst = () => {
       const newParticles: Particle[] = [];
@@ -45,14 +44,19 @@ export function USDCFlow({ progress, totalAmount, paused = false, duration, inte
       setParticles(prev => [...prev.slice(-15), ...newParticles]);
     };
 
-    createParticleBurst();
+    updateNextUnlock();
+    const countdownInterval = setInterval(updateNextUnlock, 1000);
+
+    const timeToNextBurst = intervalSeconds - ((Math.floor(Date.now() / 1000) - startTimestamp) % intervalSeconds);
+    const initialTimeout = setTimeout(createParticleBurst, timeToNextBurst * 1000);
     const burstInterval = setInterval(createParticleBurst, intervalSeconds * 1000);
 
     return () => {
       clearInterval(countdownInterval);
       clearInterval(burstInterval);
+      clearTimeout(initialTimeout);
     };
-  }, [progress, paused, intervalSeconds]);
+  }, [progress, paused, intervalSeconds, startTimestamp]);
 
   useEffect(() => {
     if (nextUnlockIn === 1 && !paused) {
