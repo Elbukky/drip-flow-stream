@@ -1,34 +1,78 @@
 import { useEffect, useState } from "react";
-import { USDC_LOGO } from "@/lib/contracts";
+import { USDC_LOGO, formatUSDC, getPerUnlockAmount } from "@/lib/contracts";
 
 interface USDCFlowProps {
   progress: number;
-  totalAmount: string;
+  totalAmount: bigint | string;
   paused?: boolean;
+  duration?: bigint;
+  interval?: bigint;
 }
 
-export function USDCFlow({ progress, totalAmount, paused = false }: USDCFlowProps) {
+export function USDCFlow({ progress, totalAmount, paused = false, duration, interval }: USDCFlowProps) {
   const [particles, setParticles] = useState<Particle[]>([]);
+  const [nextUnlockIn, setNextUnlockIn] = useState(0);
+  
+  const intervalSeconds = interval ? Number(interval) : 60;
+  const perUnlock = duration && interval ? getPerUnlockAmount(BigInt(totalAmount.toString()), duration, interval) : null;
   
   useEffect(() => {
     if (paused || progress <= 0 || progress >= 100) {
       setParticles([]);
+      setNextUnlockIn(0);
       return;
     }
 
-    const createParticle = () => {
-      const newParticle: Particle = {
-        id: Date.now() + Math.random(),
-        startTime: Date.now(),
-        duration: 2000 + Math.random() * 500,
-      };
-      setParticles(prev => [...prev.slice(-10), newParticle]);
+    const updateNextUnlock = () => {
+      const now = Math.floor(Date.now() / 1000);
+      const secondsSinceStart = now % intervalSeconds;
+      const secondsUntilNext = intervalSeconds - secondsSinceStart;
+      setNextUnlockIn(secondsUntilNext);
     };
 
-    createParticle();
-    const interval = setInterval(createParticle, 600);
-    return () => clearInterval(interval);
-  }, [progress, paused]);
+    updateNextUnlock();
+    const countdownInterval = setInterval(updateNextUnlock, 1000);
+
+    const createParticleBurst = () => {
+      const newParticles: Particle[] = [];
+      for (let i = 0; i < 3; i++) {
+        newParticles.push({
+          id: Date.now() + Math.random() + i,
+          startTime: Date.now(),
+          duration: 1500 + Math.random() * 300,
+        });
+      }
+      setParticles(prev => [...prev.slice(-15), ...newParticles]);
+    };
+
+    createParticleBurst();
+    const burstInterval = setInterval(createParticleBurst, intervalSeconds * 1000);
+
+    return () => {
+      clearInterval(countdownInterval);
+      clearInterval(burstInterval);
+    };
+  }, [progress, paused, intervalSeconds]);
+
+  useEffect(() => {
+    if (nextUnlockIn === 1 && !paused) {
+      const newParticles: Particle[] = [];
+      for (let i = 0; i < 5; i++) {
+        newParticles.push({
+          id: Date.now() + Math.random() + i,
+          startTime: Date.now(),
+          duration: 1500 + Math.random() * 300,
+        });
+      }
+      setParticles(prev => [...prev.slice(-15), ...newParticles]);
+    }
+  }, [nextUnlockIn, paused]);
+
+  const formatCountdown = (seconds: number) => {
+    if (seconds >= 3600) return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+    if (seconds >= 60) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+    return `${seconds}s`;
+  };
 
   return (
     <div className="relative w-full">
@@ -78,6 +122,15 @@ export function USDCFlow({ progress, totalAmount, paused = false }: USDCFlowProp
                   }}
                 />
               ))}
+            </div>
+          )}
+
+          {interval && !paused && progress < 100 && (
+            <div className="absolute -bottom-5 left-0 right-0 flex justify-center">
+              <span className="text-[9px] text-muted-foreground bg-background px-1">
+                NEXT: {formatCountdown(nextUnlockIn)}
+                {perUnlock && <span className="ml-1 text-primary">(+{formatUSDC(perUnlock)} USDC)</span>}
+              </span>
             </div>
           )}
         </div>
