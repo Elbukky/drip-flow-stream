@@ -1,4 +1,5 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { motion } from "framer-motion";
 
 const WalletConnect = () => {
   return (
@@ -88,21 +89,13 @@ const WalletConnect = () => {
                 </button>
               </div>
             ) : (
-              <button
+              <motion.button
+                whileTap={{ scale: 0.97 }}
                 onClick={openConnectModal}
-                style={{
-                  padding: "10px 20px",
-                  background: "hsl(var(--primary))",
-                  color: "hsl(var(--primary-foreground))",
-                  border: "none",
-                  borderRadius: "4px",
-                  fontWeight: "600",
-                  cursor: "pointer",
-                  fontFamily: "monospace",
-                }}
+                className="btn-primary"
               >
                 [ CONNECT_WALLET ]
-              </button>
+              </motion.button>
             )}
           </div>
         );

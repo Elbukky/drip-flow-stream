@@ -189,10 +189,10 @@ export default function ProtocolStatsPage() {
                 <div>
                   <p className="label-micro mb-1">Contract Address</p>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm">0x82817f305C20b8E6B6871C3e2bB1d37Dd07f0629</span>
+                    <span className="font-mono text-sm">0xb53879ADa9756D45D874b6c54d06052698CeDfC9</span>
                     <button
                       onClick={() => {
-                        navigator.clipboard.writeText("0x82817f305C20b8E6B6871C3e2bB1d37Dd07f0629");
+                        navigator.clipboard.writeText("0xb53879ADa9756D45D874b6c54d06052698CeDfC9");
                       }}
                       className="text-muted-foreground hover:text-foreground"
                     >
