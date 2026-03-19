@@ -12,7 +12,7 @@ export function AppHeader() {
     <header className="border-b border-border sticky top-0 z-10 bg-background">
       <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link to="/app">
+          <Link to="/">
             <h1 className="font-mono-display text-xl text-primary font-bold tracking-tighter">
               DRIP<span className="text-foreground">FLOW</span>
             </h1>

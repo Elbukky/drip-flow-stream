@@ -344,18 +344,20 @@ export default function StreamDetailPage() {
                         Resume Stream
                       </Button>
                     )}
-                    <Button
-                      onClick={handleCancel}
-                      disabled={isCancelling || cancelling}
-                      variant="destructive"
-                    >
-                      {isCancelling || cancelling ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : (
-                        <XCircle className="w-4 h-4 mr-2" />
-                      )}
-                      Cancel Stream
-                    </Button>
+                    {status === 1 && (
+                      <Button
+                        onClick={handleCancel}
+                        disabled={isCancelling || cancelling}
+                        variant="destructive"
+                      >
+                        {isCancelling || cancelling ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                          <XCircle className="w-4 h-4 mr-2" />
+                        )}
+                        Cancel Stream
+                      </Button>
+                    )}
                   </>
                 )}
 

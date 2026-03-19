@@ -90,9 +90,13 @@ const Landing = () => {
               >
                 [ START_STREAMING ]
               </motion.button>
-              <button className="btn-secondary text-sm py-5 px-10">
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => navigate("/docs")}
+                className="btn-secondary text-sm py-5 px-10"
+              >
                 [ READ_DOCS ]
-              </button>
+              </motion.button>
             </motion.div>
 
             {/* Live rate ticker */}

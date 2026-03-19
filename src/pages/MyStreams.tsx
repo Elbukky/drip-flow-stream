@@ -623,19 +623,21 @@ function CreatorStreamCard({
                   Resume
                 </Button>
               )}
-              <Button
-                size="sm"
-                variant="destructive"
-                className="text-[10px] sm:text-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowCancelModal(true);
-                }}
-                disabled={isCancelling}
-              >
-                {isCancelling ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
-                Cancel
-              </Button>
+              {status === 1 && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="text-[10px] sm:text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowCancelModal(true);
+                  }}
+                  disabled={isCancelling}
+                >
+                  {isCancelling ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <XCircle className="w-3 h-3 mr-1" />}
+                  Cancel
+                </Button>
+              )}
             </>
           )}
           {status === 2 && (
