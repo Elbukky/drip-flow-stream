@@ -8,7 +8,14 @@ import {
 } from "@rainbow-me/rainbowkit";
 import "@rainbow-me/rainbowkit/styles.css";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30 * 1000,
+      retry: 2,
+    },
+  },
+});
 
 const arcTestnet = {
   id: 5042002,
@@ -42,7 +49,11 @@ const config = createConfig({
   chains: [arcTestnet],
   connectors: connectors,
   transports: {
-    [arcTestnet.id]: http(),
+    [arcTestnet.id]: http(undefined, {
+      batch: {
+        wait: 16,
+      },
+    }),
   },
 });
 
