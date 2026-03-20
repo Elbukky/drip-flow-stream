@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
-import { Plus, List, BarChart3, Menu, X, FileText } from "lucide-react";
+import { Plus, List, BarChart3, Menu, X, FileText, MessageSquare } from "lucide-react";
 import { WalletDisplay } from "@/components/WalletDisplay";
 
 const LOGO = "/logo.png";
@@ -44,6 +44,9 @@ export function AppHeader() {
                   </NavLink>
                   <NavLink to="/docs" icon={<FileText className="w-4 h-4" />}>
                     Docs
+                  </NavLink>
+                  <NavLink to="/feedback" icon={<MessageSquare className="w-4 h-4" />}>
+                    Feedback
                   </NavLink>
                 </nav>
 
@@ -102,6 +105,13 @@ export function AppHeader() {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Documentation
+              </MobileNavLink>
+              <MobileNavLink 
+                to="/feedback" 
+                icon={<MessageSquare className="w-5 h-5" />}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Feedback
               </MobileNavLink>
             </nav>
           </div>
