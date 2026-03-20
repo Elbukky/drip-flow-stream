@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAccount } from "wagmi";
-import { useCreateStream, useCreateMultiStream, useUSDCBalance } from "@/hooks/useTokenStream";
+import { useCreateStream, useCreateMultiStream, useNativeBalance } from "@/hooks/useTokenStream";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -50,7 +50,7 @@ export default function CreateStreamPage() {
 function SingleStreamForm() {
   const { address, isConnected } = useAccount();
   const { createStream, isPending, isConfirming, isConfirmed, txHash, error } = useCreateStream();
-  const { data: usdcBalance, isLoading: isBalanceLoading } = useUSDCBalance(address);
+  const { data: nativeBalance, isLoading: isBalanceLoading, symbol } = useNativeBalance(address);
   
   const [beneficiary, setBeneficiary] = useState("");
   const [amount, setAmount] = useState("");
@@ -62,8 +62,8 @@ function SingleStreamForm() {
   const durationSeconds = toDurationSeconds(parseFloat(durationValue) || 0, durationUnit);
   const intervalError = interval > durationSeconds && durationSeconds > 0;
 
-  const formattedBalance = usdcBalance ? formatUSDC(usdcBalance) : "0";
-  const maxAmount = usdcBalance ? Math.max(0, parseFloat(formattedBalance) - GAS_FEE_RESERVE) : 0;
+  const formattedBalance = nativeBalance ? formatUSDC(nativeBalance) : "0";
+  const maxAmount = nativeBalance ? Math.max(0, parseFloat(formattedBalance) - GAS_FEE_RESERVE) : 0;
   const maxAmountStr = maxAmount > 0 ? maxAmount.toFixed(6) : "0";
 
   const handleMaxClick = () => {
@@ -174,12 +174,12 @@ function SingleStreamForm() {
               <label className="text-sm font-medium flex items-center gap-2">
                 Amount
                 <img src={USDC_LOGO} alt="USDC" className="w-4 h-4 rounded-full" />
-                <span className="text-muted-foreground font-normal">{USDC_SYMBOL}</span>
+                <span className="text-muted-foreground font-normal">{symbol || USDC_SYMBOL}</span>
               </label>
               {isConnected && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Wallet className="w-3 h-3" />
-                  <span>Balance: {isBalanceLoading ? "..." : formattedBalance}</span>
+                  <span>Balance: {isBalanceLoading ? "..." : `${formattedBalance} ${symbol || USDC_SYMBOL}`}</span>
                   {maxAmount > 0 && (
                     <Button
                       type="button"
@@ -318,7 +318,7 @@ interface BeneficiaryRow {
 function MultiStreamForm() {
   const { address, isConnected } = useAccount();
   const { createMultiStream, isPending, isConfirming, isConfirmed, txHash, error } = useCreateMultiStream();
-  const { data: usdcBalance, isLoading: isBalanceLoading } = useUSDCBalance(address);
+  const { data: nativeBalance, isLoading: isBalanceLoading, symbol } = useNativeBalance(address);
   
   const [totalAmount, setTotalAmount] = useState("");
   const [durationValue, setDurationValue] = useState("");
@@ -331,8 +331,8 @@ function MultiStreamForm() {
   ]);
   const [createdStreamIds, setCreatedStreamIds] = useState<string[]>([]);
 
-  const formattedBalance = usdcBalance ? formatUSDC(usdcBalance) : "0";
-  const maxAmount = usdcBalance ? Math.max(0, parseFloat(formattedBalance) - GAS_FEE_RESERVE) : 0;
+  const formattedBalance = nativeBalance ? formatUSDC(nativeBalance) : "0";
+  const maxAmount = nativeBalance ? Math.max(0, parseFloat(formattedBalance) - GAS_FEE_RESERVE) : 0;
   const maxAmountStr = maxAmount > 0 ? maxAmount.toFixed(6) : "0";
 
   const handleMaxClick = () => {
@@ -485,12 +485,12 @@ function MultiStreamForm() {
                 <label className="text-sm font-medium flex items-center gap-2">
                   Total Amount
                   <img src={USDC_LOGO} alt="USDC" className="w-4 h-4 rounded-full" />
-                  <span className="text-muted-foreground font-normal">{USDC_SYMBOL}</span>
+                  <span className="text-muted-foreground font-normal">{symbol || USDC_SYMBOL}</span>
                 </label>
                 {isConnected && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Wallet className="w-3 h-3" />
-                    <span>Balance: {isBalanceLoading ? "..." : formattedBalance}</span>
+                    <span>Balance: {isBalanceLoading ? "..." : `${formattedBalance} ${symbol || USDC_SYMBOL}`}</span>
                     {maxAmount > 0 && (
                       <Button
                         type="button"
