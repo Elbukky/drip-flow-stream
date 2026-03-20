@@ -1,4 +1,4 @@
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance } from "wagmi";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   TOKEN_STREAM_ADDRESS,
@@ -11,6 +11,53 @@ import {
 const CONTRACT_CONFIG = {
   address: TOKEN_STREAM_ADDRESS as `0x${string}`,
 };
+
+const USDC_ABI = [
+  {
+    type: "function",
+    name: "balanceOf",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "decimals",
+    inputs: [],
+    outputs: [{ name: "", type: "uint8" }],
+    stateMutability: "view",
+  },
+];
+
+export function useUSDCBalance(address?: `0x${string}`) {
+  const result = useReadContract({
+    address: USDC_ADDRESS as `0x${string}`,
+    abi: USDC_ABI,
+    functionName: "balanceOf",
+    args: [address as `0x${string}`],
+    query: { enabled: !!address },
+  });
+
+  return {
+    data: result.data ? BigInt(result.data.toString()) : undefined,
+    isLoading: result.isLoading,
+    refetch: result.refetch,
+  };
+}
+
+export function useNativeBalance(address?: `0x${string}`) {
+  const { data, isLoading, refetch } = useBalance({
+    address,
+    query: { enabled: !!address },
+  });
+
+  return {
+    data: data?.value,
+    formatted: data?.formatted,
+    isLoading,
+    refetch,
+  };
+}
 
 export function useStream(streamId: bigint | number) {
   const streamIdBigInt = BigInt(streamId);

@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { useAccount } from "wagmi";
-import { useCreateStream, useCreateMultiStream } from "@/hooks/useTokenStream";
+import { useCreateStream, useCreateMultiStream, useUSDCBalance } from "@/hooks/useTokenStream";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2, CheckCircle2, Copy, ExternalLink } from "lucide-react";
-import { USDC_LOGO, USDC_SYMBOL, isValidAddress, toDurationSeconds, getExplorerUrl, INTERVAL_OPTIONS } from "@/lib/contracts";
+import { Plus, Trash2, Loader2, CheckCircle2, Copy, ExternalLink, Wallet } from "lucide-react";
+import { USDC_LOGO, USDC_SYMBOL, isValidAddress, toDurationSeconds, getExplorerUrl, INTERVAL_OPTIONS, formatUSDC } from "@/lib/contracts";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
+
+const GAS_FEE_RESERVE = 0.5;
 
 export default function CreateStreamPage() {
   return (
@@ -48,6 +50,7 @@ export default function CreateStreamPage() {
 function SingleStreamForm() {
   const { address, isConnected } = useAccount();
   const { createStream, isPending, isConfirming, isConfirmed, txHash, error } = useCreateStream();
+  const { data: usdcBalance, isLoading: isBalanceLoading } = useUSDCBalance(address);
   
   const [beneficiary, setBeneficiary] = useState("");
   const [amount, setAmount] = useState("");
@@ -58,6 +61,14 @@ function SingleStreamForm() {
 
   const durationSeconds = toDurationSeconds(parseFloat(durationValue) || 0, durationUnit);
   const intervalError = interval > durationSeconds && durationSeconds > 0;
+
+  const formattedBalance = usdcBalance ? formatUSDC(usdcBalance) : "0";
+  const maxAmount = usdcBalance ? Math.max(0, parseFloat(formattedBalance) - GAS_FEE_RESERVE) : 0;
+  const maxAmountStr = maxAmount > 0 ? maxAmount.toFixed(6) : "0";
+
+  const handleMaxClick = () => {
+    setAmount(maxAmountStr);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,20 +170,56 @@ function SingleStreamForm() {
           </div>
           
           <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
-              Amount
-              <img src={USDC_LOGO} alt="USDC" className="w-4 h-4 rounded-full" />
-              <span className="text-muted-foreground font-normal">{USDC_SYMBOL}</span>
-            </label>
-            <Input
-              type="number"
-              step="0.000001"
-              min="0"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="font-mono"
-            />
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium flex items-center gap-2">
+                Amount
+                <img src={USDC_LOGO} alt="USDC" className="w-4 h-4 rounded-full" />
+                <span className="text-muted-foreground font-normal">{USDC_SYMBOL}</span>
+              </label>
+              {isConnected && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Wallet className="w-3 h-3" />
+                  <span>Balance: {isBalanceLoading ? "..." : formattedBalance}</span>
+                  {maxAmount > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-5 px-2 text-xs"
+                      onClick={handleMaxClick}
+                    >
+                      Max
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="relative">
+              <Input
+                type="number"
+                step="0.000001"
+                min="0"
+                max={maxAmountStr}
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="font-mono pr-20"
+              />
+              {maxAmount > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={handleMaxClick}
+                >
+                  -{GAS_FEE_RESERVE}
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Reserve {GAS_FEE_RESERVE} {USDC_SYMBOL} for gas fees
+            </p>
           </div>
           
           <div className="space-y-2">
@@ -271,6 +318,7 @@ interface BeneficiaryRow {
 function MultiStreamForm() {
   const { address, isConnected } = useAccount();
   const { createMultiStream, isPending, isConfirming, isConfirmed, txHash, error } = useCreateMultiStream();
+  const { data: usdcBalance, isLoading: isBalanceLoading } = useUSDCBalance(address);
   
   const [totalAmount, setTotalAmount] = useState("");
   const [durationValue, setDurationValue] = useState("");
@@ -282,6 +330,14 @@ function MultiStreamForm() {
     { id: "2", address: "", percentage: "" },
   ]);
   const [createdStreamIds, setCreatedStreamIds] = useState<string[]>([]);
+
+  const formattedBalance = usdcBalance ? formatUSDC(usdcBalance) : "0";
+  const maxAmount = usdcBalance ? Math.max(0, parseFloat(formattedBalance) - GAS_FEE_RESERVE) : 0;
+  const maxAmountStr = maxAmount > 0 ? maxAmount.toFixed(6) : "0";
+
+  const handleMaxClick = () => {
+    setTotalAmount(maxAmountStr);
+  };
 
   const addBeneficiary = () => {
     if (beneficiaries.length >= 1000) {
@@ -425,20 +481,56 @@ function MultiStreamForm() {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                Total Amount
-                <img src={USDC_LOGO} alt="USDC" className="w-4 h-4 rounded-full" />
-                <span className="text-muted-foreground font-normal">{USDC_SYMBOL}</span>
-              </label>
-              <Input
-                type="number"
-                step="0.000001"
-                min="0"
-                placeholder="0.00"
-                value={totalAmount}
-                onChange={(e) => setTotalAmount(e.target.value)}
-                className="font-mono"
-              />
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium flex items-center gap-2">
+                  Total Amount
+                  <img src={USDC_LOGO} alt="USDC" className="w-4 h-4 rounded-full" />
+                  <span className="text-muted-foreground font-normal">{USDC_SYMBOL}</span>
+                </label>
+                {isConnected && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Wallet className="w-3 h-3" />
+                    <span>Balance: {isBalanceLoading ? "..." : formattedBalance}</span>
+                    {maxAmount > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-5 px-2 text-xs"
+                        onClick={handleMaxClick}
+                      >
+                        Max
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="relative">
+                <Input
+                  type="number"
+                  step="0.000001"
+                  min="0"
+                  max={maxAmountStr}
+                  placeholder="0.00"
+                  value={totalAmount}
+                  onChange={(e) => setTotalAmount(e.target.value)}
+                  className="font-mono pr-20"
+                />
+                {maxAmount > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={handleMaxClick}
+                  >
+                    -{GAS_FEE_RESERVE}
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Reserve {GAS_FEE_RESERVE} {USDC_SYMBOL} for gas fees
+              </p>
             </div>
             
             <div className="space-y-2">
