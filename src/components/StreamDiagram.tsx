@@ -1,324 +1,136 @@
 "use client";
 
-import { motion } from "framer-motion";
-
 interface StreamDiagramProps {
   type: "single" | "multi-even" | "multi-custom";
 }
 
 export function StreamDiagram({ type }: StreamDiagramProps) {
   return (
-    <div className="w-full max-w-[800px] overflow-x-auto my-8">
-      <svg
-        viewBox="0 0 700 300"
-        className="w-full h-auto min-w-[300px]"
-        style={{ background: "#0a0a0a", borderRadius: "8px" }}
-      >
-        <defs>
-          <marker
-            id="teal-arrow"
-            markerWidth="10"
-            markerHeight="10"
-            refX="9"
-            refY="3"
-            orient="auto"
-            markerUnits="strokeWidth"
-          >
-            <path d="M0,0 L0,6 L9,3 z" fill="#00c9a7" />
-          </marker>
-          <marker
-            id="orange-arrow"
-            markerWidth="10"
-            markerHeight="10"
-            refX="9"
-            refY="3"
-            orient="auto"
-            markerUnits="strokeWidth"
-          >
-            <path d="M0,0 L0,6 L9,3 z" fill="#ff6b00" />
-          </marker>
-          <style>
-            {`
-              @keyframes march {
-                to { stroke-dashoffset: -20; }
-              }
-              .flow-arrow {
-                stroke-dasharray: 6 4;
-                animation: march 0.8s linear infinite;
-              }
-              .box-text {
-                font-family: 'Courier New', monospace;
-                font-size: 12px;
-                fill: white;
-              }
-              .label-text {
-                font-family: 'Courier New', monospace;
-                font-size: 10px;
-                fill: #666;
-              }
-              .creator-box {
-                fill: rgba(0,201,167,0.08);
-                stroke: #00c9a7;
-                stroke-width: 2;
-                rx: 8;
-              }
-              .contract-box {
-                fill: #1a1f2e;
-                stroke: #2a3148;
-                stroke-width: 2;
-                rx: 8;
-              }
-              .beneficiary-box {
-                fill: rgba(255,107,0,0.08);
-                stroke: #ff6b00;
-                stroke-width: 2;
-                rx: 8;
-              }
-            `}
-          </style>
-        </defs>
-
-        {/* Creator Box */}
-        <rect
-          x="20"
-          y="120"
-          width="140"
-          height="60"
-          className="creator-box"
-        />
-        <text x="90" y="145" textAnchor="middle" className="box-text">
-          CREATOR
-        </text>
-        <text x="90" y="162" textAnchor="middle" className="box-text" style={{ fontSize: "10px", fill: "#00c9a7" }}>
-          WALLET
-        </text>
-
-        {/* Contract Box */}
-        <rect
-          x="280"
-          y="100"
-          width="140"
-          height="100"
-          className="contract-box"
-        />
-        <text x="350" y="135" textAnchor="middle" className="box-text">
-          STREAM
-        </text>
-        <text x="350" y="152" textAnchor="middle" className="box-text">
-          CONTRACT
-        </text>
-
-        {/* Arrows from Creator to Contract */}
-        <motion.path
-          d="M 160 150 L 280 150"
-          stroke="#00c9a7"
-          strokeWidth="2"
-          fill="none"
-          markerEnd="url(#teal-arrow)"
-          className="flow-arrow"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1 }}
-        />
-        <text x="220" y="140" textAnchor="middle" className="label-text">
-          [ deposit USDC ]
-        </text>
-
-        {type === "single" && <SingleStream />}
-        {type === "multi-even" && <MultiEvenStream />}
-        {type === "multi-custom" && <MultiCustomStream />}
-      </svg>
+    <div className="w-full my-8 p-4 rounded-lg overflow-x-auto" style={{ background: "#0a0a0a" }}>
+      {type === "single" && <SingleStreamDiagram />}
+      {type === "multi-even" && <MultiEvenDiagram />}
+      {type === "multi-custom" && <MultiCustomDiagram />}
     </div>
   );
 }
 
-function SingleStream() {
+function SingleStreamDiagram() {
   return (
-    <>
-      {/* Arrow to Beneficiary */}
-      <motion.path
-        d="M 420 150 L 540 150"
-        stroke="#ff6b00"
-        strokeWidth="2"
-        fill="none"
-        markerEnd="url(#orange-arrow)"
-        className="flow-arrow"
-        initial={{ pathLength: 0 }}
-        animate={{ pathLength: 1 }}
-        transition={{ duration: 1, delay: 0.5 }}
-      />
-      <text x="480" y="140" textAnchor="middle" className="label-text">
-        [ streams X USDC / hour ]
-      </text>
-
-      {/* Beneficiary Box */}
-      <rect
-        x="540"
-        y="120"
-        width="140"
-        height="60"
-        className="beneficiary-box"
-      />
-      <text x="610" y="145" textAnchor="middle" className="box-text">
-        BENEFICIARY
-      </text>
-      <text x="610" y="162" textAnchor="middle" className="box-text" style={{ fontSize: "10px", fill: "#ff6b00" }}>
-        WALLET
-      </text>
-    </>
+    <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-2 py-6 min-w-[300px]">
+      <NodeBox label="CREATOR" sublabel="WALLET" color="teal" />
+      <Arrow direction="right" color="teal" label="[ deposit USDC ]" />
+      <NodeBox label="STREAM" sublabel="CONTRACT" color="dark" />
+      <Arrow direction="right" color="orange" label="[ streams X / hr ]" />
+      <NodeBox label="BENEFICIARY" sublabel="WALLET" color="orange" />
+    </div>
   );
 }
 
-function MultiEvenStream() {
-  const beneficiaries = ["A", "B", "C"];
-  const yPositions = [80, 150, 220];
-
+function MultiEvenDiagram() {
   return (
-    <>
-      <motion.path
-        d="M 420 150 L 500 150"
-        stroke="#ff6b00"
-        strokeWidth="2"
-        fill="none"
-        className="flow-arrow"
-        initial={{ pathLength: 0 }}
-        animate={{ pathLength: 1 }}
-        transition={{ duration: 1, delay: 0.5 }}
-      />
+    <div className="py-6 min-w-[300px]">
+      <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-2">
+        <NodeBox label="CREATOR" sublabel="WALLET" color="teal" />
+        <Arrow direction="right" color="teal" label="[ deposit — split ]" />
+        <NodeBox label="STREAM" sublabel="CONTRACT" color="dark" />
+      </div>
 
-      {/* Horizontal line */}
-      <motion.line
-        x1="500"
-        y1="150"
-        x2="500"
-        y2="220"
-        stroke="#ff6b00"
-        strokeWidth="2"
-        className="flow-arrow"
-        initial={{ pathLength: 0 }}
-        animate={{ pathLength: 1 }}
-        transition={{ duration: 1, delay: 0.6 }}
-      />
-
-      {/* Label */}
-      <text x="480" y="140" textAnchor="middle" className="label-text">
-        [ deposit total — split evenly ]
-      </text>
-
-      {beneficiaries.map((letter, i) => (
-        <g key={letter}>
-          <motion.line
-            x1="500"
-            y1={yPositions[i]}
-            x2="540"
-            y2={yPositions[i]}
-            stroke="#ff6b00"
-            strokeWidth="2"
-            className="flow-arrow"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 0.5, delay: 0.7 + i * 0.1 }}
-          />
-          <motion.path
-            d="M 540 0 L 540 0"
-            stroke="#ff6b00"
-            strokeWidth="0"
-            markerEnd="url(#orange-arrow)"
-          />
-          <rect
-            x="540"
-            y={yPositions[i] - 30}
-            width="140"
-            height="60"
-            className="beneficiary-box"
-          />
-          <text x="610" y={yPositions[i] - 5} textAnchor="middle" className="box-text">
-            BENEFICIARY
-          </text>
-          <text x="610" y={yPositions[i] + 12} textAnchor="middle" className="box-text" style={{ fontSize: "10px", fill: "#ff6b00" }}>
-            {letter}
-          </text>
-          <text x="680" y={yPositions[i] + 10} textAnchor="end" className="label-text">
-            [ X / 3 USDC/hr ]
-          </text>
-        </g>
-      ))}
-    </>
+      <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8 mt-8">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-6 w-0.5 bg-[#ff6b00] hidden md:block" />
+          <NodeBox label="BENEFICIARY" sublabel="A" color="orange" small />
+          <span className="text-[10px] text-gray-500 font-mono">[ X/3 /hr ]</span>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-6 w-0.5 bg-[#ff6b00] hidden md:block" />
+          <NodeBox label="BENEFICIARY" sublabel="B" color="orange" small />
+          <span className="text-[10px] text-gray-500 font-mono">[ X/3 /hr ]</span>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-6 w-0.5 bg-[#ff6b00] hidden md:block" />
+          <NodeBox label="BENEFICIARY" sublabel="C" color="orange" small />
+          <span className="text-[10px] text-gray-500 font-mono">[ X/3 /hr ]</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
-function MultiCustomStream() {
-  const streams = [
-    { label: "50%", amount: "X", target: "TEAM", y: 60 },
-    { label: "30%", amount: "Y", target: "INVESTOR", y: 150 },
-    { label: "20%", amount: "Z", target: "ADVISOR", y: 240 },
-  ];
+function MultiCustomDiagram() {
+  return (
+    <div className="py-6 min-w-[300px]">
+      <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-2">
+        <NodeBox label="CREATOR" sublabel="WALLET" color="teal" />
+        <Arrow direction="right" color="teal" label="[ deposit — split ]" />
+        <NodeBox label="STREAM" sublabel="CONTRACT" color="dark" />
+      </div>
+
+      <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8 mt-8">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-6 w-0.5 bg-[#ff6b00] hidden md:block" />
+          <NodeBox label="TEAM" sublabel="WALLET" color="orange" small />
+          <span className="text-[10px] text-gray-500 font-mono">[ 50% — X /day ]</span>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-6 w-0.5 bg-[#ff6b00] hidden md:block" />
+          <NodeBox label="INVESTOR" sublabel="WALLET" color="orange" small />
+          <span className="text-[10px] text-gray-500 font-mono">[ 30% — Y /day ]</span>
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-6 w-0.5 bg-[#ff6b00] hidden md:block" />
+          <NodeBox label="ADVISOR" sublabel="WALLET" color="orange" small />
+          <span className="text-[10px] text-gray-500 font-mono">[ 20% — Z /day ]</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NodeBox({ label, sublabel, color, small }: { label: string; sublabel: string; color: "teal" | "orange" | "dark"; small?: boolean }) {
+  const styles = {
+    teal: "border-[#00c9a7] bg-[rgba(0,201,167,0.08)]",
+    orange: "border-[#ff6b00] bg-[rgba(255,107,0,0.08)]",
+    dark: "border-[#2a3148] bg-[#1a1f2e]",
+  };
+
+  const textColor = {
+    teal: "text-[#00c9a7]",
+    orange: "text-[#ff6b00]",
+    dark: "text-white",
+  };
 
   return (
-    <>
-      <motion.path
-        d="M 420 150 L 500 150"
-        stroke="#ff6b00"
-        strokeWidth="2"
-        fill="none"
-        className="flow-arrow"
-        initial={{ pathLength: 0 }}
-        animate={{ pathLength: 1 }}
-        transition={{ duration: 1, delay: 0.5 }}
-      />
+    <div className={`px-3 py-2 md:px-4 md:py-3 rounded-lg border-2 ${styles[color]} ${small ? 'min-w-[90px] md:min-w-[100px]' : 'min-w-[100px] md:min-w-[120px]'}`}>
+      <p className={`font-mono text-center font-bold ${textColor[color]} text-xs md:text-sm`}>{label}</p>
+      <p className={`font-mono text-center text-[9px] md:text-[10px] ${textColor[color]} opacity-70`}>{sublabel}</p>
+    </div>
+  );
+}
 
-      {/* Horizontal line */}
-      <motion.line
-        x1="500"
-        y1="60"
-        x2="500"
-        y2="240"
-        stroke="#ff6b00"
-        strokeWidth="2"
-        className="flow-arrow"
-        initial={{ pathLength: 0 }}
-        animate={{ pathLength: 1 }}
-        transition={{ duration: 1, delay: 0.6 }}
-      />
+function Arrow({ direction, color, label }: { direction: "left" | "right" | "down"; color: "teal" | "orange"; label?: string }) {
+  const borderColor = color === "teal" ? "border-[#00c9a7]" : "border-[#ff6b00]";
+  const textColor = color === "teal" ? "text-[#00c9a7]" : "text-[#ff6b00]";
 
-      {/* Label */}
-      <text x="480" y="140" textAnchor="middle" className="label-text">
-        [ deposit total — custom split ]
-      </text>
-
-      {streams.map((stream, i) => (
-        <g key={stream.target}>
-          <motion.line
-            x1="500"
-            y1={stream.y}
-            x2="540"
-            y2={stream.y}
-            stroke="#ff6b00"
-            strokeWidth="2"
-            markerEnd="url(#orange-arrow)"
-            className="flow-arrow"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 0.5, delay: 0.7 + i * 0.1 }}
-          />
-          <rect
-            x="540"
-            y={stream.y - 30}
-            width="140"
-            height="60"
-            className="beneficiary-box"
-          />
-          <text x="610" y={stream.y - 5} textAnchor="middle" className="box-text">
-            {stream.target}
-          </text>
-          <text x="610" y={stream.y + 12} textAnchor="middle" className="box-text" style={{ fontSize: "10px", fill: "#ff6b00" }}>
-            WALLET
-          </text>
-          <text x="680" y={stream.y + 10} textAnchor="end" className="label-text">
-            [ {stream.label} — {stream.amount} USDC/day ]
-          </text>
-        </g>
-      ))}
-    </>
+  return (
+    <div className="flex flex-col items-center">
+      {label && (
+        <span className={`text-[9px] md:text-[10px] font-mono ${textColor} mb-1 whitespace-nowrap px-1`}>
+          {label}
+        </span>
+      )}
+      <div className="relative">
+        <div className={`h-0.5 ${borderColor} w-8 md:w-12`} />
+        <div 
+          className="absolute right-0 top-1/2 -translate-y-1/2"
+          style={{
+            width: 0,
+            height: 0,
+            borderTop: "5px solid transparent",
+            borderBottom: "5px solid transparent",
+            borderLeft: `8px solid ${color === "teal" ? "#00c9a7" : "#ff6b00"}`,
+          }}
+        />
+      </div>
+    </div>
   );
 }
