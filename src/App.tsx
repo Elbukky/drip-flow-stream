@@ -12,6 +12,7 @@ import MyStreamsPage from "./pages/MyStreams.tsx";
 import StreamDetailPage from "./pages/StreamDetail.tsx";
 import ProtocolStatsPage from "./pages/ProtocolStats.tsx";
 import DocsPage from "./pages/Docs.tsx";
+import FeedbackPage from "./pages/Feedback.tsx";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/app/stream/:streamId" element={<StreamDetailPage />} />
             <Route path="/app/protocol" element={<ProtocolStatsPage />} />
             <Route path="/docs" element={<DocsPage />} />
+            <Route path="/feedback" element={<FeedbackPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
