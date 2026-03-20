@@ -15,7 +15,7 @@ export default async function handler(req, res) {
 
     if (!RESEND_API_KEY) {
       console.error("RESEND_API_KEY is not configured");
-      return res.status(500).json({ error: "Email service not configured" });
+      return res.status(500).json({ error: "Email service not configured. Please add RESEND_API_KEY in Vercel settings." });
     }
 
     const emailHtml = `
@@ -32,21 +32,21 @@ export default async function handler(req, res) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Unit Protocol <feedback@unitprotocol.xyz>",
+        from: "onboarding@resend.dev",
         to: TO_EMAIL,
         subject: `New Feedback from ${name}`,
         html: emailHtml,
-        replyTo: email,
+        reply_to: email,
       }),
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Resend API error:", errorData);
-      return res.status(500).json({ error: "Failed to send email" });
+      console.error("Resend API error:", data);
+      return res.status(500).json({ error: data.message || "Failed to send email. Check Resend API key." });
     }
 
-    const data = await response.json();
     console.log("Email sent successfully:", data.id);
 
     return res.status(200).json({ success: true, message: "Feedback sent successfully" });
