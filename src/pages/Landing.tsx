@@ -138,6 +138,17 @@ const Landing = () => {
             </h1>
             <span className="label-micro mt-1 hidden sm:block">PROTOCOL</span>
           </div>
+          <nav className="hidden md:flex items-center gap-6">
+            <a href="#stats" className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors">
+              Stats
+            </a>
+            <a href="#features" className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors">
+              Features
+            </a>
+            <a href="#how-it-works" className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors">
+              How it works
+            </a>
+          </nav>
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => navigate("/app")}
@@ -233,7 +244,7 @@ const Landing = () => {
       </section>
 
       {/* Stats */}
-      <section className="border-b border-border">
+      <section id="stats" className="border-b border-border">
         <div className="max-w-[1400px] mx-auto grid grid-cols-2 lg:grid-cols-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -287,7 +298,7 @@ const Landing = () => {
       </section>
 
       {/* Features */}
-      <section className="border-b border-border">
+      <section id="features" className="border-b border-border">
         <div className="max-w-[1400px] mx-auto px-6 py-20">
           <div className="label-micro mb-12">[ PROTOCOL_FEATURES ]</div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-0 border border-border">
@@ -310,7 +321,7 @@ const Landing = () => {
       </section>
 
       {/* How it works */}
-      <section className="border-b border-border">
+      <section id="how-it-works" className="border-b border-border">
         <div className="max-w-[1400px] mx-auto px-6 py-20">
           <div className="label-micro mb-12">[ HOW_IT_WORKS ]</div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-border">

@@ -614,7 +614,7 @@ export const isValidAddress = (address: string): boolean => {
 };
 
 export const getExplorerUrl = (txHash: string): string => {
-  return `https://testnet.arcscan.io/tx/${txHash}`;
+  return `https://testnet.arcscan.app/tx/${txHash}`;
 };
 
 export const getStreamUrl = (streamId: string | number): string => {
