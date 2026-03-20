@@ -53,7 +53,7 @@ function SingleStreamForm() {
   const [amount, setAmount] = useState("");
   const [durationValue, setDurationValue] = useState("");
   const [durationUnit, setDurationUnit] = useState<"seconds" | "minutes" | "hours" | "days">("days");
-  const [interval, setInterval] = useState<number>(3600);
+  const [interval, setInterval] = useState<number>(1);
   const [createdStreamId, setCreatedStreamId] = useState<string | null>(null);
 
   const durationSeconds = toDurationSeconds(parseFloat(durationValue) || 0, durationUnit);
@@ -275,7 +275,7 @@ function MultiStreamForm() {
   const [totalAmount, setTotalAmount] = useState("");
   const [durationValue, setDurationValue] = useState("");
   const [durationUnit, setDurationUnit] = useState<"seconds" | "minutes" | "hours" | "days">("days");
-  const [interval, setInterval] = useState<number>(3600);
+  const [interval, setInterval] = useState<number>(1);
   const [distributionMode, setDistributionMode] = useState<"even" | "custom">("even");
   const [beneficiaries, setBeneficiaries] = useState<BeneficiaryRow[]>([
     { id: "1", address: "", percentage: "" },
