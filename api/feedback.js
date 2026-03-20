@@ -1,5 +1,5 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const TO_EMAIL = "mayorxtreem@gmail.com";
+const TO_EMAIL = "l00ppinside@gmail.com";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
