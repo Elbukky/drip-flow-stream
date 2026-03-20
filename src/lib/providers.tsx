@@ -28,7 +28,7 @@ const arcTestnet = {
   },
   rpcUrls: {
     default: {
-      http: ["https://rpc.testnet.arc.network"],
+      http: ["https://rpc.testnet.arc.network", "https://arc-testnet.drpc.org"],
     },
   },
   blockExplorers: {
@@ -49,7 +49,7 @@ const config = createConfig({
   chains: [arcTestnet],
   connectors: connectors,
   transports: {
-    [arcTestnet.id]: http(undefined, {
+    [arcTestnet.id]: http("https://arc-testnet.drpc.org", {
       batch: {
         wait: 16,
       },
