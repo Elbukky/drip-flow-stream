@@ -347,7 +347,7 @@ function StreamCard({
           </div>
           <div className="flex flex-col">
             <span className="text-muted-foreground">Next Unlock</span>
-            <span className="text-primary font-medium">{status === 0 ? formatTime(nextUnlock) : "-"}</span>
+            <span className="text-primary font-medium">{status === 0 ? (timeRemaining !== undefined && timeRemaining === 0n ? "Fully unlocked" : formatTime(nextUnlock)) : "-"}</span>
           </div>
           <div className="flex flex-col sm:col-span-1">
             <span className="text-muted-foreground">Per Unlock</span>
@@ -581,7 +581,7 @@ function CreatorStreamCard({
           </div>
           <div className="flex flex-col">
             <span className="text-muted-foreground">Next Unlock</span>
-            <span className="text-primary font-medium">{status === 0 ? formatTime(nextUnlock) : "-"}</span>
+            <span className="text-primary font-medium">{status === 0 ? (timeRemaining !== undefined && timeRemaining === 0n ? "Fully unlocked" : formatTime(nextUnlock)) : "-"}</span>
           </div>
           <div className="flex flex-col">
             <span className="text-muted-foreground">Per Unlock</span>

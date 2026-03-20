@@ -230,7 +230,7 @@ export default function StreamDetailPage() {
                 <div>
                   <p className="label-micro mb-1">Next Unlock In</p>
                   <p className="font-mono-display text-lg text-green-500">
-                    {!isFinished ? formatTime(nextUnlock) : "-"}
+                    {!isFinished ? (timeRemaining !== undefined && timeRemaining === 0n ? "Fully unlocked" : formatTime(nextUnlock)) : "-"}
                   </p>
                 </div>
                 <div>
