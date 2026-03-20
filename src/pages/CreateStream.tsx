@@ -62,9 +62,9 @@ function SingleStreamForm() {
   const durationSeconds = toDurationSeconds(parseFloat(durationValue) || 0, durationUnit);
   const intervalError = interval > durationSeconds && durationSeconds > 0;
 
-  const formattedBalance = nativeBalance ? formatUSDC(nativeBalance) : "0";
+  const formattedBalance = nativeBalance ? (Number(nativeBalance) / 1e18).toFixed(3) : "0";
   const maxAmount = nativeBalance ? Math.max(0, parseFloat(formattedBalance) - GAS_FEE_RESERVE) : 0;
-  const maxAmountStr = maxAmount > 0 ? maxAmount.toFixed(6) : "0";
+  const maxAmountStr = maxAmount > 0 ? maxAmount.toFixed(3) : "0";
 
   const handleMaxClick = () => {
     setAmount(maxAmountStr);
@@ -331,9 +331,9 @@ function MultiStreamForm() {
   ]);
   const [createdStreamIds, setCreatedStreamIds] = useState<string[]>([]);
 
-  const formattedBalance = nativeBalance ? formatUSDC(nativeBalance) : "0";
+  const formattedBalance = nativeBalance ? (Number(nativeBalance) / 1e18).toFixed(3) : "0";
   const maxAmount = nativeBalance ? Math.max(0, parseFloat(formattedBalance) - GAS_FEE_RESERVE) : 0;
-  const maxAmountStr = maxAmount > 0 ? maxAmount.toFixed(6) : "0";
+  const maxAmountStr = maxAmount > 0 ? maxAmount.toFixed(3) : "0";
 
   const handleMaxClick = () => {
     setTotalAmount(maxAmountStr);
