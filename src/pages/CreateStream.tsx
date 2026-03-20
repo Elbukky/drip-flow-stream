@@ -7,11 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Trash2, Loader2, CheckCircle2, Copy, ExternalLink, Wallet } from "lucide-react";
-import { USDC_LOGO, USDC_SYMBOL, isValidAddress, toDurationSeconds, getExplorerUrl, INTERVAL_OPTIONS, formatUSDC } from "@/lib/contracts";
+import { Plus, Trash2, Loader2, CheckCircle2, Copy, ExternalLink } from "lucide-react";
+import { USDC_LOGO, USDC_SYMBOL, isValidAddress, toDurationSeconds, getExplorerUrl, INTERVAL_OPTIONS } from "@/lib/contracts";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
-
-const GAS_FEE_RESERVE = 0.5;
 
 export default function CreateStreamPage() {
   return (
@@ -63,7 +61,7 @@ function SingleStreamForm() {
   const intervalError = interval > durationSeconds && durationSeconds > 0;
 
   const formattedBalance = nativeBalance ? (Number(nativeBalance) / 1e18).toFixed(3) : "0";
-  const maxAmount = nativeBalance ? Math.max(0, parseFloat(formattedBalance) - GAS_FEE_RESERVE) : 0;
+  const maxAmount = nativeBalance ? parseFloat(formattedBalance) : 0;
   const maxAmountStr = maxAmount > 0 ? maxAmount.toFixed(3) : "0";
 
   const handleMaxClick = () => {
@@ -177,21 +175,9 @@ function SingleStreamForm() {
                 <span className="text-muted-foreground font-normal">{symbol || USDC_SYMBOL}</span>
               </label>
               {isConnected && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Wallet className="w-3 h-3" />
-                  <span>Balance: {isBalanceLoading ? "..." : `${formattedBalance} ${symbol || USDC_SYMBOL}`}</span>
-                  {maxAmount > 0 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-5 px-2 text-xs"
-                      onClick={handleMaxClick}
-                    >
-                      Max
-                    </Button>
-                  )}
-                </div>
+                <span className="text-xs text-muted-foreground">
+                  {isBalanceLoading ? "..." : formattedBalance}
+                </span>
               )}
             </div>
             <div className="relative">
@@ -199,27 +185,21 @@ function SingleStreamForm() {
                 type="number"
                 step="0.000001"
                 min="0"
-                max={maxAmountStr}
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="font-mono pr-20"
+                className="font-mono pr-12"
               />
-              {maxAmount > 0 && (
-                <Button
+              {isConnected && maxAmount > 0 && (
+                <button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs text-muted-foreground hover:text-foreground"
                   onClick={handleMaxClick}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-primary hover:text-primary/80"
                 >
-                  -{GAS_FEE_RESERVE}
-                </Button>
+                  MAX
+                </button>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Reserve {GAS_FEE_RESERVE} {USDC_SYMBOL} for gas fees
-            </p>
           </div>
           
           <div className="space-y-2">
@@ -332,7 +312,7 @@ function MultiStreamForm() {
   const [createdStreamIds, setCreatedStreamIds] = useState<string[]>([]);
 
   const formattedBalance = nativeBalance ? (Number(nativeBalance) / 1e18).toFixed(3) : "0";
-  const maxAmount = nativeBalance ? Math.max(0, parseFloat(formattedBalance) - GAS_FEE_RESERVE) : 0;
+  const maxAmount = nativeBalance ? parseFloat(formattedBalance) : 0;
   const maxAmountStr = maxAmount > 0 ? maxAmount.toFixed(3) : "0";
 
   const handleMaxClick = () => {
@@ -488,21 +468,9 @@ function MultiStreamForm() {
                   <span className="text-muted-foreground font-normal">{symbol || USDC_SYMBOL}</span>
                 </label>
                 {isConnected && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Wallet className="w-3 h-3" />
-                    <span>Balance: {isBalanceLoading ? "..." : `${formattedBalance} ${symbol || USDC_SYMBOL}`}</span>
-                    {maxAmount > 0 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-5 px-2 text-xs"
-                        onClick={handleMaxClick}
-                      >
-                        Max
-                      </Button>
-                    )}
-                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {isBalanceLoading ? "..." : formattedBalance}
+                  </span>
                 )}
               </div>
               <div className="relative">
@@ -510,27 +478,21 @@ function MultiStreamForm() {
                   type="number"
                   step="0.000001"
                   min="0"
-                  max={maxAmountStr}
                   placeholder="0.00"
                   value={totalAmount}
                   onChange={(e) => setTotalAmount(e.target.value)}
-                  className="font-mono pr-20"
+                  className="font-mono pr-12"
                 />
-                {maxAmount > 0 && (
-                  <Button
+                {isConnected && maxAmount > 0 && (
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 text-xs text-muted-foreground hover:text-foreground"
                     onClick={handleMaxClick}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-primary hover:text-primary/80"
                   >
-                    -{GAS_FEE_RESERVE}
-                  </Button>
+                    MAX
+                  </button>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Reserve {GAS_FEE_RESERVE} {USDC_SYMBOL} for gas fees
-              </p>
             </div>
             
             <div className="space-y-2">
