@@ -193,7 +193,7 @@ This action cannot be undone. Both parties should confirm before proceeding.`
     title: "SMART CONTRACT",
     content: `DripFlow uses a single smart contract on Arc Testnet:
 
-Contract: 0xDa0b9d18Fe9e67e5997b96Ef6ACa25a87eee62a9
+Contract: 0xd54B92983698Dbc3193a1E1D18DA68d5E6AD66a4
 Network: Arc Testnet (Chain ID: 5042002)
 Token: USDC (address(0) - native)
 
