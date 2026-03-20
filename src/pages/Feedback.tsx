@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { AppHeader, AppFooter } from "@/components/AppLayout";
 
 const feedbackSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -66,7 +67,9 @@ export default function FeedbackPage() {
   };
 
   return (
-    <div className="container max-w-2xl mx-auto py-12 px-4">
+    <div className="min-h-screen bg-background flex flex-col">
+      <AppHeader />
+      <div className="flex-1 max-w-xl mx-auto px-6 py-8 w-full">
       <Card>
         <CardHeader className="text-center">
           <CardTitle className="text-3xl">Feedback</CardTitle>
@@ -123,6 +126,8 @@ export default function FeedbackPage() {
           </form>
         </CardContent>
       </Card>
+      </div>
+      <AppFooter />
     </div>
   );
 }

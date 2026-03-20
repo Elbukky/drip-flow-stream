@@ -11,6 +11,8 @@ import { Plus, Trash2, Loader2, CheckCircle2, Copy, ExternalLink } from "lucide-
 import { USDC_LOGO, USDC_SYMBOL, isValidAddress, toDurationSeconds, getExplorerUrl, INTERVAL_OPTIONS } from "@/lib/contracts";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
 
+const GAS_FEE_RESERVE = 0.5;
+
 export default function CreateStreamPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -61,7 +63,7 @@ function SingleStreamForm() {
   const intervalError = interval > durationSeconds && durationSeconds > 0;
 
   const formattedBalance = nativeBalance ? (Number(nativeBalance) / 1e18).toFixed(3) : "0";
-  const maxAmount = nativeBalance ? parseFloat(formattedBalance) : 0;
+  const maxAmount = nativeBalance ? Math.max(0, parseFloat(formattedBalance) - GAS_FEE_RESERVE) : 0;
   const maxAmountStr = maxAmount > 0 ? maxAmount.toFixed(3) : "0";
 
   const handleMaxClick = () => {
@@ -312,7 +314,7 @@ function MultiStreamForm() {
   const [createdStreamIds, setCreatedStreamIds] = useState<string[]>([]);
 
   const formattedBalance = nativeBalance ? (Number(nativeBalance) / 1e18).toFixed(3) : "0";
-  const maxAmount = nativeBalance ? parseFloat(formattedBalance) : 0;
+  const maxAmount = nativeBalance ? Math.max(0, parseFloat(formattedBalance) - GAS_FEE_RESERVE) : 0;
   const maxAmountStr = maxAmount > 0 ? maxAmount.toFixed(3) : "0";
 
   const handleMaxClick = () => {
