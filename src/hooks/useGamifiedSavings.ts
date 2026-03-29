@@ -37,6 +37,7 @@ function parsePosition(raw: unknown): Position {
     percentBps: Number(r.percentBps ?? r[5]),
     mode: Number(r.mode ?? r[6]),
     active: Boolean(r.active ?? r[7]),
+    frequency: Number(r.frequency ?? r[8] ?? 0),
   };
 }
 
@@ -145,6 +146,11 @@ export function useGamifiedSavings() {
         functionName: "getPositionCount",
         args: [address as `0x${string}`],
       },
+      {
+        ...CONTRACT_CONFIG,
+        functionName: "getTotalLocked",
+        args: [address as `0x${string}`],
+      },
     ],
     query: {
       enabled: isConnected && !!address,
@@ -194,6 +200,12 @@ export function useGamifiedSavings() {
     return Number(toBigInt(result.result));
   }, [batchedReads.data]);
 
+  const totalLocked: bigint = useMemo(() => {
+    const result = batchedReads.data?.[6];
+    if (result?.status !== "success") return 0n;
+    return toBigInt(result.result);
+  }, [batchedReads.data]);
+
   // =========================================================================
   // Per-position claimable (individual read)
   // =========================================================================
@@ -236,12 +248,12 @@ export function useGamifiedSavings() {
   // =========================================================================
 
   const depositFixedDaily = useCallback(
-    (dailyAmount: bigint, totalValue: bigint) => {
+    (amountPerPeriod: bigint, frequency: number, totalValue: bigint) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (writeContract as any)({
         ...CONTRACT_CONFIG,
         functionName: "depositFixedDaily",
-        args: [dailyAmount],
+        args: [amountPerPeriod, frequency],
         value: totalValue,
       });
     },
@@ -249,12 +261,12 @@ export function useGamifiedSavings() {
   );
 
   const depositPercentage = useCallback(
-    (percentBps: number, durationDays: number, totalValue: bigint) => {
+    (percentBps: number, durationPeriods: number, frequency: number, totalValue: bigint) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (writeContract as any)({
         ...CONTRACT_CONFIG,
         functionName: "depositPercentage",
-        args: [percentBps, durationDays],
+        args: [percentBps, durationPeriods, frequency],
         value: totalValue,
       });
     },
@@ -355,6 +367,7 @@ export function useGamifiedSavings() {
     // Read data
     positions,
     totalClaimable,
+    totalLocked,
     userStats,
     badges,
     lifetimeSaved,

@@ -3,7 +3,8 @@ import { Link, useLocation } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
 import { useGamifiedSavings } from "@/hooks/useGamifiedSavings";
-import { formatUSDCValue, MIN_BALANCE_MULT, MIN_UNLOCKED_FOR_XP, STREAK_RECOVERY_FEE } from "@/lib/gamified-savings";
+import { formatUSDCValue, MIN_LOCKED_FOR_XP, MIN_LOCKED_MULT, STREAK_RECOVERY_FEE, FREQUENCY_LABELS, FREQUENCY_SECONDS } from "@/lib/gamified-savings";
+import type { UnlockFrequency } from "@/lib/gamified-savings";
 import {
   Shield,
   Star,
@@ -113,7 +114,7 @@ function FireAnimation({ show }: { show: boolean }) {
 
 const CUSTOM_ERROR_MESSAGES: Record<string, string> = {
   AlreadyCheckedInToday: "You've already checked in today! Come back tomorrow.",
-  InsufficientUnlockedForXP: "Insufficient unlocked balance. You need at least 1 ETH unclaimed across your positions to check in.",
+  InsufficientLockedForXP: "You need at least 1 USDC still locked in your positions to check in.",
   NoActivePositions: "No active savings positions found. Create one first!",
   PositionNotActive: "This savings position is no longer active.",
   NothingToClaim: "Nothing available to claim yet.",
@@ -333,7 +334,8 @@ function FlowProgressContent() {
         multiplier={multiplier}
         streak={streak}
         usedEmergency={usedEmergency}
-        totalClaimable={savings.totalClaimable}
+        totalLocked={savings.totalLocked}
+        hasActivePosition={activePositionCount > 0}
       />
 
       {/* SECTION 5: BADGES EARNED */}
@@ -463,20 +465,20 @@ function StreakTrackerCard({
 
   // --- Compute canCheckIn from contract requirements ---
   const hasActivePositions = savings.positions.some((p) => p.active);
-  const hasMinBalance = savings.totalClaimable >= MIN_UNLOCKED_FOR_XP;
+  const hasMinLocked = savings.totalLocked >= MIN_LOCKED_FOR_XP;
   const lastCheckInDay = lastCheckIn > 0 ? Math.floor(lastCheckIn / 86400) : -1;
   const todayDay = Math.floor(Date.now() / 1000 / 86400);
   const notCheckedInToday = lastCheckInDay !== todayDay;
-  const canCheckIn = hasActivePositions && hasMinBalance && notCheckedInToday && !savings.isPending && !savings.isConfirming;
+  const canCheckIn = hasActivePositions && hasMinLocked && notCheckedInToday && !savings.isPending && !savings.isConfirming;
 
   // --- Determine the disabled reason for UI hint ---
   const disabledReason = useMemo(() => {
     if (savings.isPending || savings.isConfirming) return "Transaction in progress...";
     if (!hasActivePositions) return "Create a savings position first";
     if (!notCheckedInToday) return "Already checked in today - come back tomorrow!";
-    if (!hasMinBalance) return "Need at least 1 ETH unclaimed balance";
+    if (!hasMinLocked) return "Need at least 1 USDC still locked in your positions";
     return null;
-  }, [hasActivePositions, hasMinBalance, notCheckedInToday, savings.isPending, savings.isConfirming]);
+  }, [hasActivePositions, hasMinLocked, notCheckedInToday, savings.isPending, savings.isConfirming]);
 
   useEffect(() => {
     function update() {
@@ -544,9 +546,9 @@ function StreakTrackerCard({
       return;
     }
 
-    // Pre-validate: minimum unclaimed balance (contract requires >= 1 ETH / 1e18 wei)
-    if (!hasMinBalance) {
-      toast.error("Insufficient unlocked balance for check-in. You need at least 1 ETH in unclaimed savings across your positions.");
+    // Pre-validate: minimum locked balance
+    if (!hasMinLocked) {
+      toast.error("Insufficient locked balance for check-in. You need at least 1 USDC still locked in your savings positions.");
       return;
     }
 
@@ -746,19 +748,25 @@ function XPMultiplierCard({
   multiplier,
   streak,
   usedEmergency,
-  totalClaimable,
+  totalLocked,
+  hasActivePosition,
 }: {
   totalXP: bigint;
   multiplier: number;
   streak: number;
   usedEmergency: boolean;
-  totalClaimable: bigint;
+  totalLocked: bigint;
+  hasActivePosition: boolean;
 }) {
   const multiplierColor = getMultiplierColor(multiplier);
   const multiplierBg = getMultiplierBg(multiplier);
-  const hasMinBalance = totalClaimable >= MIN_BALANCE_MULT;
+  const hasMinBalance = totalLocked >= MIN_LOCKED_MULT;
 
   const requirements = [
+    {
+      label: "Active savings position",
+      achieved: hasActivePosition,
+    },
     {
       label: "7-day streak = 2x",
       achieved: streak >= 7,
@@ -772,11 +780,7 @@ function XPMultiplierCard({
       achieved: streak >= 30,
     },
     {
-      label: "No emergency withdrawals",
-      achieved: !usedEmergency,
-    },
-    {
-      label: ">10 USDC unclaimed balance",
+      label: ">10 USDC locked balance",
       achieved: hasMinBalance,
     },
   ];
@@ -850,12 +854,12 @@ function XPMultiplierCard({
         </div>
       </div>
 
-      {/* Emergency warning */}
+      {/* Emergency info (softer - not permanent) */}
       {usedEmergency && (
-        <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 p-3 rounded-sm">
-          <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
-          <p className="text-sm text-destructive">
-            Multiplier permanently lost due to emergency withdrawal
+        <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 p-3 rounded-sm">
+          <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+          <p className="text-sm text-yellow-500">
+            Emergency withdrawal used previously. Your streak was reset but you can rebuild it to regain your multiplier.
           </p>
         </div>
       )}

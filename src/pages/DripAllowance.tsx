@@ -1,11 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { motion, AnimatePresence } from "framer-motion";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
 import { useGamifiedSavings } from "@/hooks/useGamifiedSavings";
-import { formatUSDCValue, EMERGENCY_FEE_BPS } from "@/lib/gamified-savings";
-import type { Position } from "@/lib/gamified-savings";
+import { formatUSDCValue, EMERGENCY_FEE_BPS, FREQUENCY_LABELS, FREQUENCY_SECONDS } from "@/lib/gamified-savings";
+import type { Position, UnlockFrequency } from "@/lib/gamified-savings";
 import { parseEther } from "viem";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -77,11 +77,13 @@ function PageTabs() {
 // Custom tooltip for the chart
 // ---------------------------------------------------------------------------
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-card border border-border p-3 rounded-sm text-xs">
       <p className="text-muted-foreground mb-1 font-mono-display">{label}</p>
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       {payload.map((entry: any) => (
         <p key={entry.name} className="font-mono-display" style={{ color: entry.color }}>
           {entry.name}: ${entry.value}
@@ -89,6 +91,40 @@ function ChartTooltip({ active, payload, label }: any) {
       ))}
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// NextUnlockTimer Component
+// ---------------------------------------------------------------------------
+
+function NextUnlockTimer({ position }: { position: Position }) {
+  const [timeLeft, setTimeLeft] = useState("");
+
+  useEffect(() => {
+    function update() {
+      const now = Math.floor(Date.now() / 1000);
+      const start = Number(position.startTime);
+      const freqSecs = FREQUENCY_SECONDS[(position.frequency ?? 0) as UnlockFrequency] || 86400;
+      const elapsed = now - start;
+      const elapsedPeriods = Math.floor(elapsed / freqSecs);
+      const nextUnlock = start + (elapsedPeriods + 1) * freqSecs;
+      const remaining = nextUnlock - now;
+
+      if (remaining <= 0) {
+        setTimeLeft("Now!");
+      } else {
+        const h = Math.floor(remaining / 3600);
+        const m = Math.floor((remaining % 3600) / 60);
+        const s = remaining % 60;
+        setTimeLeft(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`);
+      }
+    }
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [position]);
+
+  return <span className="font-mono-display text-primary">{timeLeft}</span>;
 }
 
 // ---------------------------------------------------------------------------
@@ -137,11 +173,6 @@ function DripAllowanceContent() {
     return savings.positions.reduce((sum, p) => sum + p.claimed, 0n);
   }, [savings.positions]);
 
-  const locked = useMemo(() => {
-    const val = totalDeposited - totalClaimed - savings.totalClaimable;
-    return val > 0n ? val : 0n;
-  }, [totalDeposited, totalClaimed, savings.totalClaimable]);
-
   const unlockPercent = useMemo(() => {
     if (totalDeposited === 0n) return 0;
     // unlocked = totalClaimed + totalClaimable
@@ -149,18 +180,20 @@ function DripAllowanceContent() {
     return Number((unlocked * 10000n) / totalDeposited) / 100;
   }, [totalDeposited, totalClaimed, savings.totalClaimable]);
 
-  // Calculate daily unlock rate from active positions
+  // Calculate daily unlock rate from active positions (frequency-aware)
   const dailyUnlockRate = useMemo(() => {
     return savings.positions
       .filter((p) => p.active)
       .reduce((sum, p) => {
+        const freqSecs = FREQUENCY_SECONDS[(p.frequency ?? 0) as UnlockFrequency] || 86400;
         if (p.mode === 0) {
-          // FixedDaily
-          return sum + p.dailyAmount;
+          // FixedDaily: amount per period -> amount per day
+          return sum + (p.dailyAmount * 86400n) / BigInt(freqSecs);
         } else {
-          // Percentage: percentBps / 10000 * remaining balance per day
+          // Percentage: percentBps per period -> per day
           const remaining = p.totalDeposited - p.claimed;
-          return sum + (remaining * BigInt(p.percentBps)) / 10000n;
+          const perPeriod = (remaining * BigInt(p.percentBps)) / 10000n;
+          return sum + (perPeriod * 86400n) / BigInt(freqSecs);
         }
       }, 0n);
   }, [savings.positions]);
@@ -190,7 +223,7 @@ function DripAllowanceContent() {
         <BalanceOverviewCard
           totalDeposited={totalDeposited}
           available={savings.totalClaimable}
-          locked={locked}
+          locked={savings.totalLocked}
           unlockPercent={unlockPercent}
           yearlyRate={yearlyRate}
         />
@@ -376,6 +409,7 @@ function CreateNewForm({
   savings: ReturnType<typeof useGamifiedSavings>;
 }) {
   const [mode, setMode] = useState<DepositMode>("fixed");
+  const [frequency, setFrequency] = useState<number>(0);
   const [dailyAmount, setDailyAmount] = useState("");
   const [durationDays, setDurationDays] = useState("");
   const [depositAmount, setDepositAmount] = useState("");
@@ -400,20 +434,20 @@ function CreateNewForm({
 
       if (mode === "fixed") {
         if (!dailyAmount || parseFloat(dailyAmount) <= 0) {
-          toast.error("Enter a daily allowance amount");
+          toast.error("Enter an allowance amount");
           return;
         }
         const daily = parseEther(dailyAmount);
-        savings.depositFixedDaily(daily, value);
+        savings.depositFixedDaily(daily, frequency, value);
         toast.info("Confirm the transaction in your wallet...");
       } else {
         if (!durationDays || parseInt(durationDays) <= 0) {
-          toast.error("Enter duration in days");
+          toast.error("Enter duration in periods");
           return;
         }
         const days = parseInt(durationDays);
         const calcBps = Math.min(10000, Math.max(1, Math.floor(10000 / days)));
-        savings.depositPercentage(calcBps, days, value);
+        savings.depositPercentage(calcBps, days, frequency, value);
         toast.info("Confirm the transaction in your wallet...");
       }
     } catch {
@@ -423,6 +457,29 @@ function CreateNewForm({
 
   return (
     <div className="space-y-3">
+      {/* Unlock Frequency Selector */}
+      <div className="space-y-2">
+        <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Unlock Frequency</label>
+        <div className="grid grid-cols-4 gap-2">
+          {([0, 1, 2, 3] as const).map((freq) => (
+            <button
+              key={freq}
+              onClick={() => setFrequency(freq)}
+              className={`p-3 rounded-sm border text-center transition-all duration-200 ${
+                frequency === freq
+                  ? "border-primary bg-primary/10 text-foreground shadow-[0_0_10px_rgba(255,107,0,0.2)]"
+                  : "border-border bg-secondary/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+              }`}
+            >
+              <p className="text-xs font-bold uppercase">{FREQUENCY_LABELS[freq as UnlockFrequency]}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {freq === 0 ? "Every day" : freq === 1 ? "Every 7 days" : freq === 2 ? "Every 30 days" : "Every 365 days"}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Mode toggle */}
       <div className="flex gap-0 border border-border">
         <button
@@ -433,7 +490,7 @@ function CreateNewForm({
               : "bg-card text-muted-foreground hover:text-foreground"
           }`}
         >
-          FIXED DAILY
+          FIXED {FREQUENCY_LABELS[frequency as UnlockFrequency].toUpperCase()}
         </button>
         <button
           onClick={() => setMode("percentage")}
@@ -449,7 +506,9 @@ function CreateNewForm({
 
       {mode === "fixed" ? (
         <div className="space-y-2">
-          <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Daily Allowance Amount (USDC)</label>
+          <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            {FREQUENCY_LABELS[frequency as UnlockFrequency]} Allowance Amount (USDC)
+          </label>
           <Input
             type="number"
             placeholder="5.00"
@@ -460,13 +519,15 @@ function CreateNewForm({
           {calcDuration !== null && (
             <p className="text-[10px] text-muted-foreground">
               <Clock className="w-3 h-3 inline mr-1" />
-              Duration: ~{calcDuration} days
+              Duration: ~{calcDuration} {FREQUENCY_LABELS[frequency as UnlockFrequency].toLowerCase()} periods
             </p>
           )}
         </div>
       ) : (
         <div className="space-y-2">
-          <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Duration (days)</label>
+          <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            Duration ({FREQUENCY_LABELS[frequency as UnlockFrequency].toLowerCase()} periods)
+          </label>
           <Input
             type="number"
             placeholder="30"
@@ -477,7 +538,7 @@ function CreateNewForm({
           {durationDays && parseInt(durationDays) > 0 && depositAmount && parseFloat(depositAmount) > 0 && (
             <p className="text-[10px] text-muted-foreground">
               <Clock className="w-3 h-3 inline mr-1" />
-              Daily unlock: ~${(parseFloat(depositAmount) / parseInt(durationDays)).toFixed(4)}
+              {FREQUENCY_LABELS[frequency as UnlockFrequency]} unlock: ~${(parseFloat(depositAmount) / parseInt(durationDays)).toFixed(4)}
             </p>
           )}
         </div>
@@ -575,7 +636,7 @@ function TopUpForm({
             ) : (
               positions.map((p) => (
                 <SelectItem key={p.id} value={p.id.toString()}>
-                  #{p.id} - {p.mode === 0 ? "Fixed Daily" : "Percentage"} - ${formatUSDCValue(p.totalDeposited - p.claimed)}
+                  #{p.id} - {p.mode === 0 ? "Fixed" : "%"} - {FREQUENCY_LABELS[(p.frequency ?? 0) as UnlockFrequency]} - ${formatUSDCValue(p.totalDeposited - p.claimed)}
                 </SelectItem>
               ))
             )}
@@ -587,18 +648,22 @@ function TopUpForm({
         <div className="bg-secondary p-3 space-y-1 text-xs">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Mode</span>
-            <span className="font-mono-display">{selectedPosition.mode === 0 ? "Fixed Daily" : "Percentage"}</span>
+            <span className="font-mono-display">{selectedPosition.mode === 0 ? "Fixed" : "Percentage"}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Frequency</span>
+            <span className="font-mono-display">{FREQUENCY_LABELS[(selectedPosition.frequency ?? 0) as UnlockFrequency]}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">
-              {selectedPosition.mode === 0 ? "Daily Amount" : "Daily Unlock"}
+              {selectedPosition.mode === 0 ? "Period Amount" : "Period Unlock"}
             </span>
             <span className="font-mono-display">
               {selectedPosition.mode === 0
                 ? `$${formatUSDCValue(selectedPosition.dailyAmount)}`
                 : `~$${formatUSDCValue(
                   (selectedPosition.totalDeposited - selectedPosition.claimed) * BigInt(selectedPosition.percentBps) / 10000n
-                )}/day`}
+                )}/period`}
             </span>
           </div>
           <div className="flex justify-between">
@@ -606,6 +671,10 @@ function TopUpForm({
             <span className="font-mono-display">
               ${formatUSDCValue(selectedPosition.totalDeposited - selectedPosition.claimed)}
             </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Next Unlock</span>
+            <NextUnlockTimer position={selectedPosition} />
           </div>
         </div>
       )}
@@ -680,11 +749,20 @@ function SpendingPowerCard({
       toast.error("Select a position to claim");
       return;
     }
+    // Don't send tx if nothing to claim
+    if (totalClaimable === 0n) {
+      toast.error("Nothing available to claim yet.");
+      return;
+    }
     savings.claim(parseInt(claimPosId));
     toast.info("Confirm the claim transaction...");
   };
 
   const handleClaimAll = () => {
+    if (totalClaimable === 0n) {
+      toast.error("Nothing available to claim yet.");
+      return;
+    }
     savings.claimAll();
     toast.info("Confirm the claim-all transaction...");
   };
@@ -732,6 +810,33 @@ function SpendingPowerCard({
         </motion.p>
       </div>
 
+      {/* Active Positions Overview */}
+      {positions.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Your Positions</p>
+          <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+            {positions.map((p) => {
+              const remaining = p.totalDeposited - p.claimed;
+              const freqLabel = FREQUENCY_LABELS[(p.frequency ?? 0) as UnlockFrequency];
+              return (
+                <div key={p.id} className="bg-secondary/50 border border-border p-2.5 rounded-sm flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-foreground">#{p.id}</span>
+                    <span className="text-[10px] text-muted-foreground ml-2">
+                      {p.mode === 0 ? "Fixed" : "%"} / {freqLabel}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono-display text-xs text-foreground">${formatUSDCValue(remaining)}</p>
+                    <p className="text-[10px] text-primary">Next: <NextUnlockTimer position={p} /></p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Claim controls */}
       <div className="space-y-2">
         <div className="flex gap-2">
@@ -768,15 +873,16 @@ function SpendingPowerCard({
         <motion.button
           onClick={handleClaimAll}
           disabled={savings.isPending || totalClaimable === 0n}
-          className="btn-secondary w-full flex items-center justify-center gap-2 disabled:opacity-50 relative overflow-hidden"
+          className={`btn-secondary w-full flex items-center justify-center gap-2 disabled:opacity-50 relative overflow-hidden ${
+            totalClaimable > 0n ? "ring-1 ring-primary/50" : ""
+          }`}
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.99 }}
+          animate={totalClaimable > 0n ? {
+            boxShadow: ["0 0 0px rgba(255,107,0,0)", "0 0 15px rgba(255,107,0,0.4)", "0 0 0px rgba(255,107,0,0)"]
+          } : { boxShadow: "none" }}
+          transition={totalClaimable > 0n ? { duration: 2, repeat: Infinity } : {}}
         >
-          <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
-            animate={{ x: ['-100%', '200%'] }}
-            transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-          />
           <span className="relative flex items-center gap-2">
             {savings.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUpRight className="w-4 h-4" />}
             CLAIM ALL
@@ -841,7 +947,7 @@ function SpendingPowerCard({
                 EMERGENCY WITHDRAWAL
               </h3>
               <p className="text-sm text-muted-foreground mb-4">
-                This will withdraw position #{emergencyPosId} with a <strong className="text-destructive">{EMERGENCY_FEE_BPS / 100}% fee</strong> on the remaining balance. This cannot be undone.
+                This will withdraw position #{emergencyPosId} with a <strong className="text-destructive">{EMERGENCY_FEE_BPS / 100}% fee</strong> on the remaining balance. Your streak will reset to 0 but you can rebuild it. This cannot be undone.
               </p>
               <div className="flex gap-3">
                 <button
@@ -945,19 +1051,19 @@ function AllowanceAnalyticsCard({ positions }: { positions: (Position & { id: nu
 
       for (const p of positions) {
         const startSec = Number(p.startTime);
-        const elapsedDays = Math.max(0, (nowSec - startSec) / 86400);
+        const freqSecs = FREQUENCY_SECONDS[(p.frequency ?? 0) as UnlockFrequency] || 86400;
+        const elapsedPeriods = Math.max(0, (nowSec - startSec) / freqSecs);
         const deposited = Number(p.totalDeposited) / 1e18;
         const claimed = Number(p.claimed) / 1e18;
         totalDeposited += deposited;
 
         if (p.mode === 0) {
-          const dailyAmt = Number(p.dailyAmount) / 1e18;
-          const unlocked = Math.min(deposited, dailyAmt * elapsedDays);
+          const periodAmt = Number(p.dailyAmount) / 1e18;
+          const unlocked = Math.min(deposited, periodAmt * elapsedPeriods);
           totalUnlocked += unlocked;
         } else {
           const r = p.percentBps / 10000;
-          const remaining = deposited - claimed;
-          const unlocked = deposited * (1 - Math.pow(1 - r, elapsedDays));
+          const unlocked = deposited * (1 - Math.pow(1 - r, elapsedPeriods));
           totalUnlocked += Math.min(deposited, unlocked);
         }
       }

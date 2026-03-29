@@ -1,14 +1,30 @@
 // ============================================================================
 // GamifiedSavings Contract - ABI, Types, Constants & Helpers
-// Contract: 0x9b1cD6464E45522425A86986d80b6a2c47b3F9ED
+// Contract: 0x6e3fcFa4CD32df2B57041108f90dDFAe82B7ba62
 // Chain: Arc Testnet (5042002)
 // ============================================================================
 
-export const GAMIFIED_SAVINGS_ADDRESS = "0x9b1cD6464E45522425A86986d80b6a2c47b3F9ED";
+export const GAMIFIED_SAVINGS_ADDRESS = "0x6e3fcFa4CD32df2B57041108f90dDFAe82B7ba62";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+export type UnlockFrequency = 0 | 1 | 2 | 3;
+
+export const FREQUENCY_LABELS: Record<UnlockFrequency, string> = {
+  0: "Daily",
+  1: "Weekly",
+  2: "Monthly",
+  3: "Yearly",
+};
+
+export const FREQUENCY_SECONDS: Record<UnlockFrequency, number> = {
+  0: 86400,
+  1: 604800,
+  2: 2592000,
+  3: 31536000,
+};
 
 export interface Position {
   totalDeposited: bigint;
@@ -19,6 +35,7 @@ export interface Position {
   percentBps: number;
   mode: number; // 0 = FixedDaily, 1 = Percentage
   active: boolean;
+  frequency: number;
 }
 
 export interface UserStats {
@@ -44,8 +61,8 @@ export interface BadgeInfo {
 
 export const EMERGENCY_FEE_BPS = 200;
 export const STREAK_RECOVERY_FEE = BigInt("10000000000000000"); // 0.01 ether (18 decimals)
-export const MIN_UNLOCKED_FOR_XP = BigInt("1000000000000000000"); // 1 ether
-export const MIN_BALANCE_MULT = BigInt("10000000000000000000"); // 10 ether
+export const MIN_LOCKED_FOR_XP = BigInt("1000000000000000000"); // 1 ether
+export const MIN_LOCKED_MULT = BigInt("10000000000000000000"); // 10 ether
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -71,7 +88,8 @@ export const GAMIFIED_SAVINGS_ABI = [
     "type": "function",
     "name": "depositFixedDaily",
     "inputs": [
-      { "name": "dailyAmount", "type": "uint128" }
+      { "name": "amountPerPeriod", "type": "uint128" },
+      { "name": "frequency", "type": "uint8" }
     ],
     "outputs": [],
     "stateMutability": "payable"
@@ -81,7 +99,8 @@ export const GAMIFIED_SAVINGS_ABI = [
     "name": "depositPercentage",
     "inputs": [
       { "name": "percentBps", "type": "uint16" },
-      { "name": "durationDays", "type": "uint32" }
+      { "name": "durationPeriods", "type": "uint32" },
+      { "name": "frequency", "type": "uint8" }
     ],
     "outputs": [],
     "stateMutability": "payable"
@@ -166,7 +185,8 @@ export const GAMIFIED_SAVINGS_ABI = [
           { "name": "dailyAmount", "type": "uint128" },
           { "name": "percentBps", "type": "uint16" },
           { "name": "mode", "type": "uint8" },
-          { "name": "active", "type": "bool" }
+          { "name": "active", "type": "bool" },
+          { "name": "frequency", "type": "uint8" }
         ]
       }
     ],
@@ -187,6 +207,17 @@ export const GAMIFIED_SAVINGS_ABI = [
   {
     "type": "function",
     "name": "getTotalClaimable",
+    "inputs": [
+      { "name": "user", "type": "address" }
+    ],
+    "outputs": [
+      { "name": "", "type": "uint256" }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getTotalLocked",
     "inputs": [
       { "name": "user", "type": "address" }
     ],
@@ -327,5 +358,17 @@ export const GAMIFIED_SAVINGS_ABI = [
       { "name": "user", "type": "address", "indexed": true },
       { "name": "feePaid", "type": "uint256", "indexed": false }
     ]
-  }
+  },
+
+  // ==========================================================================
+  // Custom Errors
+  // ==========================================================================
+  { "type": "error", "name": "AlreadyCheckedInToday", "inputs": [] },
+  { "type": "error", "name": "InsufficientLockedForXP", "inputs": [] },
+  { "type": "error", "name": "NoActivePositions", "inputs": [] },
+  { "type": "error", "name": "PositionNotActive", "inputs": [] },
+  { "type": "error", "name": "NothingToClaim", "inputs": [] },
+  { "type": "error", "name": "ZeroAmount", "inputs": [] },
+  { "type": "error", "name": "StreakNotRecoverable", "inputs": [] },
+  { "type": "error", "name": "IncorrectRecoveryFee", "inputs": [] }
 ] as const;
