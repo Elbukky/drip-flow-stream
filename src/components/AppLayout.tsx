@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
-import { Plus, List, BarChart3, Menu, X, FileText, MessageSquare } from "lucide-react";
+import { Plus, List, BarChart3, Menu, X, FileText, MessageSquare, Lock, TrendingUp } from "lucide-react";
 import { WalletDisplay } from "@/components/WalletDisplay";
 
 const LOGO = "/logo.png";
@@ -38,6 +38,12 @@ export function AppHeader() {
                   </NavLink>
                   <NavLink to="/app/streams" icon={<List className="w-4 h-4" />}>
                     My Streams
+                  </NavLink>
+                  <NavLink to="/app/allowance" icon={<Lock className="w-4 h-4" />}>
+                    Allowance
+                  </NavLink>
+                  <NavLink to="/app/progress" icon={<TrendingUp className="w-4 h-4" />}>
+                    Progress
                   </NavLink>
                   <NavLink to="/app/protocol" icon={<BarChart3 className="w-4 h-4" />}>
                     Protocol
@@ -91,6 +97,20 @@ export function AppHeader() {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 My Streams
+              </MobileNavLink>
+              <MobileNavLink 
+                to="/app/allowance" 
+                icon={<Lock className="w-5 h-5" />}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Allowance
+              </MobileNavLink>
+              <MobileNavLink 
+                to="/app/progress" 
+                icon={<TrendingUp className="w-5 h-5" />}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Progress
               </MobileNavLink>
               <MobileNavLink 
                 to="/app/protocol" 
@@ -184,7 +204,7 @@ export function AppFooter() {
           to="/app/protocol" 
           className="font-mono-display text-xs text-muted-foreground hover:text-primary transition-colors"
         >
-          VIEW PROTOCOL STATS →
+          VIEW PROTOCOL STATS &rarr;
         </Link>
       </div>
     </footer>
