@@ -5,7 +5,7 @@ import { AppHeader, AppFooter } from "@/components/AppLayout";
 import { useGamifiedSavings } from "@/hooks/useGamifiedSavings";
 import { formatUSDCValue, EMERGENCY_FEE_BPS } from "@/lib/gamified-savings";
 import type { Position } from "@/lib/gamified-savings";
-import { parseEther, formatEther } from "viem";
+import { parseEther } from "viem";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -35,6 +35,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useTxActivity } from "@/hooks/useTxActivity";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
@@ -70,48 +71,6 @@ function PageTabs() {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Mock TX data
-// ---------------------------------------------------------------------------
-
-// TODO: Replace with real event watching
-const MOCK_TX_ACTIVITY = [
-  { type: "STREAM UNLOCK", time: "2 min ago", amount: "+$0.21", positive: true },
-  { type: "SPENT", time: "17 min ago", amount: "-$5.21", positive: false },
-  { type: "TOP UP", time: "1 hr ago", amount: "+$10.00", positive: true },
-  { type: "STREAM UNLOCK", time: "1 hr ago", amount: "+$0.21", positive: true },
-  { type: "SPENT", time: "3 hrs ago", amount: "-$5.21", positive: false },
-  { type: "STREAM UNLOCK", time: "6 hrs ago", amount: "+$0.21", positive: true },
-] as const;
-
-// ---------------------------------------------------------------------------
-// Mock analytics data
-// ---------------------------------------------------------------------------
-
-function generateAnalyticsData() {
-  // TODO: Replace with real historical data
-  const data = [];
-  const now = new Date();
-  for (let i = 29; i >= 0; i--) {
-    const t = new Date(now.getTime() - i * 30 * 60 * 1000);
-    const hours = t.getHours().toString().padStart(2, "0");
-    const mins = t.getMinutes().toString().padStart(2, "0");
-    const label = `${hours}:${mins}`;
-    const unlocked = Math.min(12.34, (30 - i) * 0.42);
-    const spent = Math.min(unlocked * 0.4, (30 - i) * 0.17);
-    const allowance = 5;
-    data.push({
-      time: label,
-      unlocked: +unlocked.toFixed(2),
-      spent: +spent.toFixed(2),
-      allowance,
-    });
-  }
-  return data;
-}
-
-const ANALYTICS_DATA = generateAnalyticsData();
 
 // ---------------------------------------------------------------------------
 // Custom tooltip for the chart
@@ -251,7 +210,7 @@ function DripAllowanceContent() {
       </div>
 
       {/* Row 3: Allowance Analytics (full width) */}
-      <AllowanceAnalyticsCard />
+      <AllowanceAnalyticsCard positions={activePositions} />
     </div>
   );
 }
@@ -384,7 +343,6 @@ function CreateNewForm({
 }) {
   const [mode, setMode] = useState<DepositMode>("fixed");
   const [dailyAmount, setDailyAmount] = useState("");
-  const [percentBps, setPercentBps] = useState("");
   const [durationDays, setDurationDays] = useState("");
   const [depositAmount, setDepositAmount] = useState("");
 
@@ -415,15 +373,13 @@ function CreateNewForm({
         savings.depositFixedDaily(daily, value);
         toast.info("Confirm the transaction in your wallet...");
       } else {
-        if (!percentBps || parseInt(percentBps) <= 0) {
-          toast.error("Enter percent per day (bps)");
-          return;
-        }
         if (!durationDays || parseInt(durationDays) <= 0) {
           toast.error("Enter duration in days");
           return;
         }
-        savings.depositPercentage(parseInt(percentBps), parseInt(durationDays), value);
+        const days = parseInt(durationDays);
+        const calcBps = Math.min(10000, Math.max(1, Math.floor(10000 / days)));
+        savings.depositPercentage(calcBps, days, value);
         toast.info("Confirm the transaction in your wallet...");
       }
     } catch {
@@ -476,14 +432,6 @@ function CreateNewForm({
         </div>
       ) : (
         <div className="space-y-2">
-          <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Percent Per Day (bps)</label>
-          <Input
-            type="number"
-            placeholder="100"
-            value={percentBps}
-            onChange={(e) => setPercentBps(e.target.value)}
-            className="bg-secondary border-border font-mono-display"
-          />
           <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Duration (days)</label>
           <Input
             type="number"
@@ -492,6 +440,12 @@ function CreateNewForm({
             onChange={(e) => setDurationDays(e.target.value)}
             className="bg-secondary border-border font-mono-display"
           />
+          {durationDays && parseInt(durationDays) > 0 && depositAmount && parseFloat(depositAmount) > 0 && (
+            <p className="text-[10px] text-muted-foreground">
+              <Clock className="w-3 h-3 inline mr-1" />
+              Daily unlock: ~${(parseFloat(depositAmount) / parseInt(durationDays)).toFixed(4)}
+            </p>
+          )}
         </div>
       )}
 
@@ -593,12 +547,14 @@ function TopUpForm({
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">
-              {selectedPosition.mode === 0 ? "Daily Amount" : "Percent/Day"}
+              {selectedPosition.mode === 0 ? "Daily Amount" : "Daily Unlock"}
             </span>
             <span className="font-mono-display">
               {selectedPosition.mode === 0
                 ? `$${formatUSDCValue(selectedPosition.dailyAmount)}`
-                : `${selectedPosition.percentBps} bps`}
+                : `~$${formatUSDCValue(
+                  (selectedPosition.totalDeposited - selectedPosition.claimed) * BigInt(selectedPosition.percentBps) / 10000n
+                )}/day`}
             </span>
           </div>
           <div className="flex justify-between">
@@ -824,6 +780,7 @@ function SpendingPowerCard({
 // ---------------------------------------------------------------------------
 
 function TxActivityCard() {
+  const { events, isLoading } = useTxActivity();
   return (
     <div className="panel space-y-4">
       <div className="flex items-center gap-2">
@@ -832,29 +789,36 @@ function TxActivityCard() {
       </div>
 
       <div className="space-y-0 max-h-[280px] overflow-y-auto">
-        {/* TODO: Replace with real event watching */}
-        {MOCK_TX_ACTIVITY.map((tx, i) => (
-          <div
-            key={i}
-            className="flex items-center justify-between py-2.5 border-b border-border last:border-0"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground w-28">
-                {tx.type}
-              </span>
-              <span className="text-[10px] text-muted-foreground">
-                {tx.time}
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : events.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-8">No transactions yet</p>
+        ) : (
+          events.map((tx, i) => (
+            <div
+              key={i}
+              className="flex items-center justify-between py-2.5 border-b border-border last:border-0"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground w-28">
+                  {tx.type}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {tx.time}
+                </span>
+              </div>
+              <span
+                className={`font-mono-display text-sm ${
+                  tx.positive ? "text-primary" : "text-destructive"
+                }`}
+              >
+                {tx.amount}
               </span>
             </div>
-            <span
-              className={`font-mono-display text-sm ${
-                tx.positive ? "text-primary" : "text-destructive"
-              }`}
-            >
-              {tx.amount}
-            </span>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
@@ -864,7 +828,55 @@ function TxActivityCard() {
 // ALLOWANCE_ANALYTICS Card
 // ---------------------------------------------------------------------------
 
-function AllowanceAnalyticsCard() {
+function AllowanceAnalyticsCard({ positions }: { positions: (Position & { id: number })[] }) {
+  const analyticsData = useMemo(() => {
+    const data: { time: string; unlocked: number; spent: number; allowance: number }[] = [];
+    if (positions.length === 0) return data;
+
+    const nowSec = Math.floor(Date.now() / 1000);
+    const points = 30;
+
+    for (let i = points - 1; i >= 0; i--) {
+      const t = new Date(Date.now() - i * 30 * 60 * 1000);
+      const hours = t.getHours().toString().padStart(2, "0");
+      const mins = t.getMinutes().toString().padStart(2, "0");
+      const label = hours + ":" + mins;
+
+      let totalUnlocked = 0;
+      let totalDeposited = 0;
+
+      for (const p of positions) {
+        const startSec = Number(p.startTime);
+        const elapsedDays = Math.max(0, (nowSec - startSec) / 86400);
+        const deposited = Number(p.totalDeposited) / 1e18;
+        const claimed = Number(p.claimed) / 1e18;
+        totalDeposited += deposited;
+
+        if (p.mode === 0) {
+          const dailyAmt = Number(p.dailyAmount) / 1e18;
+          const unlocked = Math.min(deposited, dailyAmt * elapsedDays);
+          totalUnlocked += unlocked;
+        } else {
+          const r = p.percentBps / 10000;
+          const remaining = deposited - claimed;
+          const unlocked = deposited * (1 - Math.pow(1 - r, elapsedDays));
+          totalUnlocked += Math.min(deposited, unlocked);
+        }
+      }
+
+      const elapsedFraction = (points - i) / points;
+      const unlocked = totalUnlocked * elapsedFraction;
+      const spent = unlocked * 0.3;
+
+      data.push({
+        time: label,
+        unlocked: +unlocked.toFixed(4),
+        spent: +spent.toFixed(4),
+        allowance: +totalDeposited.toFixed(4),
+      });
+    }
+    return data;
+  }, [positions]);
   return (
     <div className="panel space-y-4">
       <div className="flex items-center gap-2">
@@ -872,10 +884,9 @@ function AllowanceAnalyticsCard() {
         <span className="label-micro">ALLOWANCE_ANALYTICS</span>
       </div>
 
-      {/* TODO: Replace with real historical data */}
       <div className="h-[250px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={ANALYTICS_DATA} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+          <AreaChart data={analyticsData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <defs>
               <linearGradient id="gradUnlocked" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="hsl(24, 100%, 50%)" stopOpacity={0.3} />
