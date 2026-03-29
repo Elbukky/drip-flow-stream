@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAccount } from "wagmi";
+import { motion, AnimatePresence } from "framer-motion";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
 import { useGamifiedSavings } from "@/hooks/useGamifiedSavings";
 import { formatUSDCValue, EMERGENCY_FEE_BPS } from "@/lib/gamified-savings";
@@ -233,37 +234,65 @@ function BalanceOverviewCard({
   yearlyRate: bigint;
 }) {
   return (
-    <div className="panel space-y-4">
-      <div className="flex items-center gap-2">
-        <Shield className="w-4 h-4 text-muted-foreground" />
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-4">
+      {/* Subtle gradient glow on hover */}
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Shield className="w-4 h-4 text-primary" />
+        </div>
         <span className="label-micro">BALANCE_OVERVIEW</span>
       </div>
 
       <div>
         <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">TOTAL BALANCE</p>
-        <p className="stream-value text-foreground text-3xl">
+        <motion.p
+          className="stream-value text-foreground text-3xl"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
           ${formatUSDCValue(totalDeposited)}
-        </p>
+        </motion.p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
           <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">AVAILABLE</p>
-          <p className="font-mono-display text-lg text-foreground">${formatUSDCValue(available)}</p>
+          <motion.p
+            className="font-mono-display text-lg text-foreground"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >
+            ${formatUSDCValue(available)}
+          </motion.p>
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">LOCKED</p>
-          <p className="font-mono-display text-lg text-foreground">${formatUSDCValue(locked)}</p>
+          <motion.p
+            className="font-mono-display text-lg text-foreground"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            ${formatUSDCValue(locked)}
+          </motion.p>
         </div>
       </div>
 
-      {/* Progress bar */}
+      {/* Glowing progress bar */}
       <div className="space-y-2">
-        <div className="w-full h-1.5 bg-secondary rounded-none overflow-hidden">
-          <div
-            className="h-full bg-primary transition-all duration-500"
-            style={{ width: `${Math.min(unlockPercent, 100)}%` }}
-          />
+        <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+          <motion.div
+            className="h-full bg-gradient-to-r from-primary to-orange-400 rounded-full relative"
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.min(unlockPercent, 100)}%` }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
+          </motion.div>
         </div>
         <div className="flex items-center justify-between text-[10px]">
           <span className="text-muted-foreground">
@@ -297,9 +326,14 @@ function AllowanceStreamCard({
   const [subTab, setSubTab] = useState<AllowanceSubTab>("create");
 
   return (
-    <div className="panel space-y-4">
-      <div className="flex items-center gap-2">
-        <Zap className="w-4 h-4 text-muted-foreground" />
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-4">
+      {/* Subtle gradient glow on hover */}
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Zap className="w-4 h-4 text-primary" />
+        </div>
         <span className="label-micro">ALLOWANCE_STREAM</span>
       </div>
 
@@ -421,7 +455,7 @@ function CreateNewForm({
             placeholder="5.00"
             value={dailyAmount}
             onChange={(e) => setDailyAmount(e.target.value)}
-            className="bg-secondary border-border font-mono-display"
+            className="bg-secondary border-border font-mono-display focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200"
           />
           {calcDuration !== null && (
             <p className="text-[10px] text-muted-foreground">
@@ -438,7 +472,7 @@ function CreateNewForm({
             placeholder="30"
             value={durationDays}
             onChange={(e) => setDurationDays(e.target.value)}
-            className="bg-secondary border-border font-mono-display"
+            className="bg-secondary border-border font-mono-display focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200"
           />
           {durationDays && parseInt(durationDays) > 0 && depositAmount && parseFloat(depositAmount) > 0 && (
             <p className="text-[10px] text-muted-foreground">
@@ -456,22 +490,32 @@ function CreateNewForm({
           placeholder="100.00"
           value={depositAmount}
           onChange={(e) => setDepositAmount(e.target.value)}
-          className="bg-secondary border-border font-mono-display"
+          className="bg-secondary border-border font-mono-display focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200"
         />
       </div>
 
-      <button
+      <motion.button
         onClick={handleLockFunds}
         disabled={savings.isPending}
-        className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50"
+        className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 relative overflow-hidden"
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.99 }}
       >
-        {savings.isPending ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <Lock className="w-4 h-4" />
-        )}
-        LOCK FUNDS
-      </button>
+        {/* Shimmer effect */}
+        <motion.div
+          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+          animate={{ x: ['-100%', '200%'] }}
+          transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+        />
+        <span className="relative flex items-center gap-2">
+          {savings.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Lock className="w-4 h-4" />
+          )}
+          LOCK FUNDS
+        </span>
+      </motion.button>
     </div>
   );
 }
@@ -522,7 +566,7 @@ function TopUpForm({
       <div className="space-y-1">
         <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Select Position</label>
         <Select value={selectedId} onValueChange={setSelectedId}>
-          <SelectTrigger className="bg-secondary border-border font-mono-display">
+          <SelectTrigger className="bg-secondary border-border font-mono-display focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200">
             <SelectValue placeholder="Select position..." />
           </SelectTrigger>
           <SelectContent>
@@ -573,7 +617,7 @@ function TopUpForm({
           placeholder="50.00"
           value={topUpAmount}
           onChange={(e) => setTopUpAmount(e.target.value)}
-          className="bg-secondary border-border font-mono-display"
+          className="bg-secondary border-border font-mono-display focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200"
         />
       </div>
 
@@ -587,18 +631,28 @@ function TopUpForm({
         </div>
       )}
 
-      <button
+      <motion.button
         onClick={handleTopUp}
         disabled={savings.isPending}
-        className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50"
+        className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 relative overflow-hidden"
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.99 }}
       >
-        {savings.isPending ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <Plus className="w-4 h-4" />
-        )}
-        TOP UP FUNDS
-      </button>
+        {/* Shimmer effect */}
+        <motion.div
+          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+          animate={{ x: ['-100%', '200%'] }}
+          transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+        />
+        <span className="relative flex items-center gap-2">
+          {savings.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Plus className="w-4 h-4" />
+          )}
+          TOP UP FUNDS
+        </span>
+      </motion.button>
     </div>
   );
 }
@@ -655,24 +709,34 @@ function SpendingPowerCard({
   };
 
   return (
-    <div className="panel space-y-4">
-      <div className="flex items-center gap-2">
-        <Zap className="w-4 h-4 text-muted-foreground" />
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-4">
+      {/* Subtle gradient glow on hover */}
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Zap className="w-4 h-4 text-primary" />
+        </div>
         <span className="label-micro">SPENDING_POWER</span>
       </div>
 
       <div>
         <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Available to Spend</p>
-        <p className="stream-value text-foreground text-3xl">
+        <motion.p
+          className="stream-value text-foreground text-3xl"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
           ${formatUSDCValue(totalClaimable)}
-        </p>
+        </motion.p>
       </div>
 
       {/* Claim controls */}
       <div className="space-y-2">
         <div className="flex gap-2">
           <Select value={claimPosId} onValueChange={setClaimPosId}>
-            <SelectTrigger className="bg-secondary border-border font-mono-display flex-1">
+            <SelectTrigger className="bg-secondary border-border font-mono-display flex-1 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200">
               <SelectValue placeholder="Position..." />
             </SelectTrigger>
             <SelectContent>
@@ -683,30 +747,48 @@ function SpendingPowerCard({
               ))}
             </SelectContent>
           </Select>
-          <button
+          <motion.button
             onClick={handleClaim}
             disabled={savings.isPending || !claimPosId}
-            className="btn-secondary flex items-center gap-1 disabled:opacity-50"
+            className="btn-secondary flex items-center gap-1 disabled:opacity-50 relative overflow-hidden"
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
           >
-            {savings.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowUpRight className="w-3 h-3" />}
-            CLAIM
-          </button>
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+              animate={{ x: ['-100%', '200%'] }}
+              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+            />
+            <span className="relative flex items-center gap-1">
+              {savings.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowUpRight className="w-3 h-3" />}
+              CLAIM
+            </span>
+          </motion.button>
         </div>
-        <button
+        <motion.button
           onClick={handleClaimAll}
           disabled={savings.isPending || totalClaimable === 0n}
-          className="btn-secondary w-full flex items-center justify-center gap-2 disabled:opacity-50"
+          className="btn-secondary w-full flex items-center justify-center gap-2 disabled:opacity-50 relative overflow-hidden"
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
         >
-          {savings.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUpRight className="w-4 h-4" />}
-          CLAIM ALL
-        </button>
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+            animate={{ x: ['-100%', '200%'] }}
+            transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+          />
+          <span className="relative flex items-center gap-2">
+            {savings.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUpRight className="w-4 h-4" />}
+            CLAIM ALL
+          </span>
+        </motion.button>
       </div>
 
       {/* Emergency controls */}
       {emergencyMode && (
         <div className="space-y-2">
           <Select value={emergencyPosId} onValueChange={setEmergencyPosId}>
-            <SelectTrigger className="bg-secondary border-border font-mono-display">
+            <SelectTrigger className="bg-secondary border-border font-mono-display focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200">
               <SelectValue placeholder="Select position..." />
             </SelectTrigger>
             <SelectContent>
@@ -744,33 +826,41 @@ function SpendingPowerCard({
       )}
 
       {/* Emergency confirmation modal */}
-      {showConfirm && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={() => setShowConfirm(false)}>
-          <div className="bg-card border border-border p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-mono-display text-lg text-destructive font-bold mb-3">
-              <AlertTriangle className="w-5 h-5 inline mr-2" />
-              EMERGENCY WITHDRAWAL
-            </h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              This will withdraw position #{emergencyPosId} with a <strong className="text-destructive">{EMERGENCY_FEE_BPS / 100}% fee</strong> on the remaining balance. This cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => { setShowConfirm(false); setEmergencyMode(false); }}
-                className="btn-secondary flex-1"
-              >
-                CANCEL
-              </button>
-              <button
-                onClick={confirmEmergency}
-                className="flex-1 py-3 px-6 font-bold uppercase text-xs tracking-widest bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                CONFIRM
-              </button>
-            </div>
+      <AnimatePresence>
+        {showConfirm && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowConfirm(false)}>
+            <motion.div
+              className="bg-card border border-destructive/30 p-6 max-w-sm w-full rounded-sm"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="font-mono-display text-lg text-destructive font-bold mb-3">
+                <AlertTriangle className="w-5 h-5 inline mr-2" />
+                EMERGENCY WITHDRAWAL
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                This will withdraw position #{emergencyPosId} with a <strong className="text-destructive">{EMERGENCY_FEE_BPS / 100}% fee</strong> on the remaining balance. This cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowConfirm(false); setEmergencyMode(false); }}
+                  className="btn-secondary flex-1"
+                >
+                  CANCEL
+                </button>
+                <button
+                  onClick={confirmEmergency}
+                  className="flex-1 py-3 px-6 font-bold uppercase text-xs tracking-widest bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  CONFIRM
+                </button>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -782,9 +872,14 @@ function SpendingPowerCard({
 function TxActivityCard() {
   const { events, isLoading } = useTxActivity();
   return (
-    <div className="panel space-y-4">
-      <div className="flex items-center gap-2">
-        <Clock className="w-4 h-4 text-muted-foreground" />
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-4">
+      {/* Subtle gradient glow on hover */}
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Clock className="w-4 h-4 text-primary" />
+        </div>
         <span className="label-micro">TX_ACTIVITY</span>
       </div>
 
@@ -797,8 +892,11 @@ function TxActivityCard() {
           <p className="text-xs text-muted-foreground text-center py-8">No transactions yet</p>
         ) : (
           events.map((tx, i) => (
-            <div
+            <motion.div
               key={i}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.05, duration: 0.3 }}
               className="flex items-center justify-between py-2.5 border-b border-border last:border-0"
             >
               <div className="flex items-center gap-3">
@@ -816,7 +914,7 @@ function TxActivityCard() {
               >
                 {tx.amount}
               </span>
-            </div>
+            </motion.div>
           ))
         )}
       </div>
@@ -878,13 +976,23 @@ function AllowanceAnalyticsCard({ positions }: { positions: (Position & { id: nu
     return data;
   }, [positions]);
   return (
-    <div className="panel space-y-4">
-      <div className="flex items-center gap-2">
-        <TrendingUp className="w-4 h-4 text-muted-foreground" />
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-4">
+      {/* Subtle gradient glow on hover */}
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <TrendingUp className="w-4 h-4 text-primary" />
+        </div>
         <span className="label-micro">ALLOWANCE_ANALYTICS</span>
       </div>
 
-      <div className="h-[250px] w-full">
+      <motion.div
+        className="h-[250px] w-full"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, delay: 0.2 }}
+      >
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={analyticsData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
             <defs>
@@ -944,7 +1052,7 @@ function AllowanceAnalyticsCard({ positions }: { positions: (Position & { id: nu
             />
           </AreaChart>
         </ResponsiveContainer>
-      </div>
+      </motion.div>
 
       {/* Legend */}
       <div className="flex items-center gap-6 text-[10px]">

@@ -18,8 +18,9 @@ import {
   TrendingUp,
   AlertTriangle,
   Loader2,
+  Flame,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
@@ -53,6 +54,56 @@ function PageTabs() {
         );
       })}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Fire Animation Component
+// ---------------------------------------------------------------------------
+
+function FireAnimation({ show }: { show: boolean }) {
+  if (!show) return null;
+  return (
+    <motion.div
+      className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      {/* Multiple flame particles rising */}
+      {Array.from({ length: 20 }).map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-3 h-3 rounded-full"
+          style={{
+            background: `radial-gradient(circle, ${i % 3 === 0 ? '#FF6B00' : i % 3 === 1 ? '#FF9500' : '#FFD700'}, transparent)`,
+            left: `${30 + Math.random() * 40}%`,
+            bottom: '40%',
+          }}
+          initial={{ y: 0, opacity: 1, scale: 1 }}
+          animate={{
+            y: [0, -200 - Math.random() * 300],
+            x: [0, (Math.random() - 0.5) * 100],
+            opacity: [1, 1, 0],
+            scale: [1, 1.5, 0],
+          }}
+          transition={{
+            duration: 1.5 + Math.random(),
+            delay: Math.random() * 0.5,
+            ease: "easeOut",
+          }}
+        />
+      ))}
+      {/* Center flame icon */}
+      <motion.div
+        className="text-6xl"
+        initial={{ scale: 0, rotate: -10 }}
+        animate={{ scale: [0, 1.5, 1], rotate: [-10, 10, 0] }}
+        transition={{ duration: 0.6, ease: "backOut" }}
+      >
+        <Flame className="w-24 h-24 text-orange-500 drop-shadow-[0_0_30px_rgba(255,107,0,0.8)]" />
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -190,11 +241,6 @@ function FlowProgressContent() {
     [savings.positions]
   );
 
-  const discipline = useMemo(() => {
-    if (savings.positions.length === 0 && streak === 0) return 0;
-    return Math.min(streak * 10 + 32, 100);
-  }, [streak, savings.positions.length]);
-
   const milestone = useMemo(() => getMilestone(streak), [streak]);
 
   const topMilestoneTarget = useMemo(
@@ -219,7 +265,6 @@ function FlowProgressContent() {
       {/* SECTION 1: YOUR FLOW PROGRESS */}
       <FlowProgressStats
         streak={streak}
-        discipline={discipline}
         activePositionCount={activePositionCount}
         topMilestoneName={topMilestoneName}
         topMilestoneTarget={topMilestoneTarget}
@@ -259,18 +304,16 @@ function FlowProgressContent() {
 }
 
 // ---------------------------------------------------------------------------
-// SECTION 1: YOUR FLOW PROGRESS (3-stat row)
+// SECTION 1: YOUR FLOW PROGRESS (2-stat row)
 // ---------------------------------------------------------------------------
 
 function FlowProgressStats({
   streak,
-  discipline,
   activePositionCount,
   topMilestoneName,
   topMilestoneTarget,
 }: {
   streak: number;
-  discipline: number;
   activePositionCount: number;
   topMilestoneName: string;
   topMilestoneTarget: number;
@@ -281,42 +324,48 @@ function FlowProgressStats({
 
   return (
     <div className="panel space-y-4">
-      <div className="flex items-center gap-2">
-        <TrendingUp className="w-4 h-4 text-muted-foreground" />
+      {/* Section Header with Icon Badge */}
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <TrendingUp className="w-4 h-4 text-primary" />
+        </div>
         <span className="label-micro">YOUR FLOW PROGRESS</span>
       </div>
 
-      {/* 3-stat row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Stat 1: Control Streak */}
-        <div className="bg-secondary/50 border border-border p-4 rounded-sm text-center">
-          <div className="flex items-baseline justify-center gap-1">
-            <span className="font-mono-display text-4xl text-foreground font-bold">
-              {streak}
-            </span>
-            <span className="text-sm text-muted-foreground">Day</span>
+      {/* 2-stat row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Stat 1: Control Streak - with gradient border */}
+        <div className="relative group">
+          <div className="absolute -inset-[1px] bg-gradient-to-b from-primary/20 to-transparent rounded-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="relative bg-secondary/50 border border-border p-4 rounded-sm text-center backdrop-blur-sm">
+            <div className="flex items-baseline justify-center gap-1">
+              {/* Animated Streak Counter with Glow */}
+              <motion.span
+                className="font-mono-display text-4xl text-foreground font-bold"
+                style={streak > 0 ? { textShadow: '0 0 20px rgba(255,107,0,0.5)', color: '#FF6B00' } : {}}
+                key={streak}
+                initial={{ scale: 1.3, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 200 }}
+              >
+                {streak}
+              </motion.span>
+              <span className="text-sm text-muted-foreground">Day</span>
+            </div>
+            <p className="label-micro mt-2">CONTROL STREAK</p>
           </div>
-          <p className="label-micro mt-2">CONTROL STREAK</p>
         </div>
 
-        {/* Stat 2: Monthly Discipline */}
-        <div className="bg-secondary/50 border border-border p-4 rounded-sm text-center">
-          <span className="font-mono-display text-4xl text-foreground font-bold">
-            {discipline}%
-          </span>
-          <p className="label-micro mt-2">MONTHLY DISCIPLINE</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            Within allowance
-          </p>
-        </div>
-
-        {/* Stat 3: Active Streams */}
-        <div className="bg-secondary/50 border border-border p-4 rounded-sm text-center">
-          <span className="font-mono-display text-4xl text-foreground font-bold">
-            {activePositionCount}
-          </span>
-          <p className="label-micro mt-2">ACTIVE STREAMS</p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">Running</p>
+        {/* Stat 2: Active Streams - with gradient border */}
+        <div className="relative group">
+          <div className="absolute -inset-[1px] bg-gradient-to-b from-primary/20 to-transparent rounded-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <div className="relative bg-secondary/50 border border-border p-4 rounded-sm text-center backdrop-blur-sm">
+            <span className="font-mono-display text-4xl text-foreground font-bold">
+              {activePositionCount}
+            </span>
+            <p className="label-micro mt-2">ACTIVE STREAMS</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Running</p>
+          </div>
         </div>
       </div>
 
@@ -333,10 +382,13 @@ function FlowProgressStats({
             {progress}/{topMilestoneTarget}
           </span>
         </div>
+        {/* Animated Progress Bar */}
         <div className="w-full h-2 rounded-full bg-secondary overflow-hidden">
-          <div
-            className="h-full rounded-full bg-primary transition-all duration-700"
-            style={{ width: `${Math.min(pct, 100)}%` }}
+          <motion.div
+            className="h-full rounded-full bg-gradient-to-r from-primary to-orange-400"
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.min(pct, 100)}%` }}
+            transition={{ duration: 1, ease: "easeOut" }}
           />
         </div>
       </div>
@@ -362,6 +414,7 @@ function StreakTrackerCard({
   const [countdown, setCountdown] = useState("");
   const [canCheckIn, setCanCheckIn] = useState(false);
   const [canRecover, setCanRecover] = useState(false);
+  const [showFire, setShowFire] = useState(false);
 
   useEffect(() => {
     function update() {
@@ -370,10 +423,10 @@ function StreakTrackerCard({
       const secRemaining = nextCheckIn - now;
 
       if (lastCheckIn === 0) {
-        // Never checked in
+        // Never checked in - show "Ready" instead of 00:00:00
         setCanCheckIn(true);
         setCanRecover(false);
-        setCountdown("00:00:00");
+        setCountdown("");
         return;
       }
 
@@ -383,17 +436,14 @@ function StreakTrackerCard({
         setCanRecover(false);
         setCountdown(formatCountdown(secRemaining));
       } else {
-        // Cooldown expired
+        // Cooldown expired - can check in
         setCanCheckIn(true);
-        // If more than 48h since last check-in, streak is broken and recovery window passed
-        // If between 24h-48h, eligible for check-in (streak continues or can recover)
         const hoursSinceCheckIn = (now - lastCheckIn) / 3600;
-        if (hoursSinceCheckIn > 48 && streak > 0) {
-          // Streak broken, within recovery window (24-48h was the window; >48h = too late)
-          setCanRecover(false);
-        } else if (hoursSinceCheckIn > 24 && hoursSinceCheckIn <= 48 && streak === 0) {
-          // Missed exactly one day, recovery possible
+        // Recovery is possible if between 24-48h and streak was > 0
+        if (hoursSinceCheckIn > 24 && hoursSinceCheckIn <= 48 && streak > 0) {
           setCanRecover(true);
+        } else {
+          setCanRecover(false);
         }
         setCountdown("00:00:00");
       }
@@ -404,9 +454,37 @@ function StreakTrackerCard({
     return () => clearInterval(interval);
   }, [lastCheckIn, streak]);
 
+  // Watch for write errors and show toast with the actual revert reason
+  useEffect(() => {
+    if (savings.writeError) {
+      toast.error("Transaction failed: " + savings.writeError.message);
+    }
+  }, [savings.writeError]);
+
+  // Refetch data when a transaction is confirmed + trigger fire animation
+  useEffect(() => {
+    if (savings.isConfirmed) {
+      toast.success("Check-in confirmed!");
+      savings.refetchAll();
+      setShowFire(true);
+      setTimeout(() => setShowFire(false), 2500);
+    }
+  }, [savings.isConfirmed]);
+
   const handleCheckIn = () => {
-    savings.checkIn();
-    toast.info("Confirm check-in transaction in your wallet...");
+    // Pre-validate: user must have at least one active position
+    if (savings.positions.filter((p) => p.active).length === 0) {
+      toast.error("You need at least one active savings position to check in");
+      return;
+    }
+    try {
+      savings.checkIn();
+      toast.info("Confirm check-in transaction in your wallet...");
+      // Refetch data after check-in to update countdown and streak
+      setTimeout(() => savings.refetchAll(), 2000);
+    } catch (error) {
+      toast.error("Check-in failed: " + (error as Error).message);
+    }
   };
 
   const handleRecoverStreak = () => {
@@ -419,8 +497,16 @@ function StreakTrackerCard({
 
   return (
     <div className="panel space-y-4">
-      <div className="flex items-center gap-2">
-        <Clock className="w-4 h-4 text-muted-foreground" />
+      {/* Fire celebration animation */}
+      <AnimatePresence>
+        <FireAnimation show={showFire} />
+      </AnimatePresence>
+
+      {/* Section Header with Icon Badge */}
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Clock className="w-4 h-4 text-primary" />
+        </div>
         <span className="label-micro">STREAK TRACKER</span>
       </div>
 
@@ -443,26 +529,31 @@ function StreakTrackerCard({
         </span>
       </div>
 
-      {/* Day indicator row */}
+      {/* Day indicator row - staggered entrance animation */}
       <div className="flex flex-wrap gap-1.5">
         {Array.from({ length: TOTAL_DOTS }).map((_, i) => (
-          <div
+          <motion.div
             key={i}
             className={`w-3.5 h-3.5 rounded-full transition-colors duration-300 ${
               i < streak
-                ? "bg-primary"
-                : "border border-muted-foreground"
+                ? "bg-primary shadow-[0_0_8px_rgba(255,107,0,0.5)]"
+                : "border border-muted-foreground/30"
             }`}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: i * 0.03, duration: 0.3 }}
           />
         ))}
       </div>
 
-      {/* Check-in button */}
+      {/* Check-in button with pulse animation */}
       <div className="space-y-3 pt-2">
-        <button
+        <motion.button
           onClick={handleCheckIn}
           disabled={savings.isPending || !canCheckIn}
-          className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50"
+          className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 relative overflow-hidden"
+          animate={canCheckIn ? { boxShadow: ["0 0 0px rgba(255,107,0,0)", "0 0 20px rgba(255,107,0,0.5)", "0 0 0px rgba(255,107,0,0)"] } : {}}
+          transition={canCheckIn ? { duration: 2, repeat: Infinity } : {}}
         >
           {savings.isPending ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -470,17 +561,23 @@ function StreakTrackerCard({
             <Check className="w-4 h-4" />
           )}
           CHECK IN
-        </button>
+        </motion.button>
 
         {/* Countdown */}
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
           <Clock className="w-3 h-3" />
-          <span>
-            Next check-in available in:{" "}
-            <span className="font-mono-display text-foreground">
-              {countdown}
+          {countdown === "" ? (
+            <span className="font-mono-display text-primary font-bold">
+              Ready for first check-in!
             </span>
-          </span>
+          ) : (
+            <span>
+              Next check-in available in:{" "}
+              <span className="font-mono-display text-foreground">
+                {countdown}
+              </span>
+            </span>
+          )}
         </div>
 
         {/* Recover streak button */}
@@ -519,8 +616,11 @@ function NextMilestoneCard({
 
   return (
     <div className="panel space-y-4">
-      <div className="flex items-center gap-2">
-        <Star className="w-4 h-4 text-muted-foreground" />
+      {/* Section Header with Icon Badge */}
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Star className="w-4 h-4 text-primary" />
+        </div>
         <span className="label-micro">NEXT MILESTONE</span>
       </div>
 
@@ -533,12 +633,14 @@ function NextMilestoneCard({
         </p>
       </div>
 
-      {/* Progress bar */}
+      {/* Animated Progress bar */}
       <div className="space-y-2">
         <div className="w-full h-2.5 rounded-full bg-secondary overflow-hidden">
-          <div
-            className="h-full rounded-full bg-primary transition-all duration-700"
-            style={{ width: `${Math.min(pct, 100)}%` }}
+          <motion.div
+            className="h-full rounded-full bg-gradient-to-r from-primary to-orange-400"
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.min(pct, 100)}%` }}
+            transition={{ duration: 1, ease: "easeOut" }}
           />
         </div>
         <div className="flex items-center justify-between">
@@ -600,8 +702,11 @@ function XPMultiplierCard({
 
   return (
     <div className="panel space-y-5">
-      <div className="flex items-center gap-2">
-        <Zap className="w-4 h-4 text-muted-foreground" />
+      {/* Section Header with Icon Badge */}
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Zap className="w-4 h-4 text-primary" />
+        </div>
         <span className="label-micro">XP & MULTIPLIER</span>
       </div>
 
@@ -761,8 +866,11 @@ function BadgesEarnedGrid({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 px-1">
-        <Crown className="w-4 h-4 text-muted-foreground" />
+      {/* Section Header with Icon Badge */}
+      <div className="flex items-center gap-3 px-1">
+        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Crown className="w-4 h-4 text-primary" />
+        </div>
         <span className="label-micro">BADGES EARNED</span>
       </div>
 
@@ -787,13 +895,22 @@ function BadgeCard({ badge }: { badge: BadgeDef }) {
 
   return (
     <div
-      className={`p-5 rounded-sm border transition-all duration-200 ${
+      className={`relative overflow-hidden p-5 rounded-sm border transition-all duration-200 ${
         badge.earned
           ? "bg-[#1E1E1E] border-border"
           : "bg-[#141414] border-border/50 opacity-60"
       }`}
     >
-      <div className="flex flex-col items-center text-center space-y-3">
+      {/* Shimmer effect for earned badges */}
+      {badge.earned && (
+        <motion.div
+          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"
+          animate={{ x: ['-100%', '200%'] }}
+          transition={{ duration: 3, repeat: Infinity, repeatDelay: 2 }}
+        />
+      )}
+
+      <div className="relative flex flex-col items-center text-center space-y-3">
         {/* Icon */}
         <div
           className={`w-10 h-10 rounded-full flex items-center justify-center ${
