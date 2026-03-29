@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
 import { useGamifiedSavings } from "@/hooks/useGamifiedSavings";
-import { formatUSDCValue, MIN_BALANCE_MULT, STREAK_RECOVERY_FEE } from "@/lib/gamified-savings";
+import { formatUSDCValue, MIN_BALANCE_MULT, MIN_UNLOCKED_FOR_XP, STREAK_RECOVERY_FEE } from "@/lib/gamified-savings";
 import {
   Shield,
   Star,
@@ -105,6 +105,52 @@ function FireAnimation({ show }: { show: boolean }) {
       </motion.div>
     </motion.div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Custom error decoder for contract reverts
+// ---------------------------------------------------------------------------
+
+const CUSTOM_ERROR_MESSAGES: Record<string, string> = {
+  AlreadyCheckedInToday: "You've already checked in today! Come back tomorrow.",
+  InsufficientUnlockedForXP: "Insufficient unlocked balance. You need at least 1 ETH unclaimed across your positions to check in.",
+  NoActivePositions: "No active savings positions found. Create one first!",
+  PositionNotActive: "This savings position is no longer active.",
+  NothingToClaim: "Nothing available to claim yet.",
+  ZeroAmount: "Amount cannot be zero.",
+  StreakNotRecoverable: "Streak is not recoverable. Recovery is only available if you missed exactly 1 day.",
+  IncorrectRecoveryFee: "Incorrect recovery fee. Please send exactly 0.01 ETH.",
+};
+
+function decodeContractError(error: unknown): string {
+  const errObj = error as { message?: string; cause?: { message?: string; data?: { errorName?: string }; shortMessage?: string } };
+
+  // Try to extract error name from viem's structured error
+  const causeData = errObj?.cause?.data;
+  if (causeData?.errorName && CUSTOM_ERROR_MESSAGES[causeData.errorName]) {
+    return CUSTOM_ERROR_MESSAGES[causeData.errorName];
+  }
+
+  // Fallback: search in error message string for known error names
+  const fullMessage = [
+    errObj?.message ?? "",
+    errObj?.cause?.message ?? "",
+    errObj?.cause?.shortMessage ?? "",
+  ].join(" ");
+
+  for (const [errorName, friendlyMessage] of Object.entries(CUSTOM_ERROR_MESSAGES)) {
+    if (fullMessage.includes(errorName)) {
+      return friendlyMessage;
+    }
+  }
+
+  // Check for user rejection
+  if (fullMessage.includes("User rejected") || fullMessage.includes("user rejected") || fullMessage.includes("denied")) {
+    return "Transaction was rejected in your wallet.";
+  }
+
+  // Return the short message from viem if available, otherwise raw message
+  return errObj?.cause?.shortMessage ?? errObj?.message ?? "Transaction failed. Please try again.";
 }
 
 // ---------------------------------------------------------------------------
@@ -412,9 +458,25 @@ function StreakTrackerCard({
   savings: ReturnType<typeof useGamifiedSavings>;
 }) {
   const [countdown, setCountdown] = useState("");
-  const [canCheckIn, setCanCheckIn] = useState(false);
   const [canRecover, setCanRecover] = useState(false);
   const [showFire, setShowFire] = useState(false);
+
+  // --- Compute canCheckIn from contract requirements ---
+  const hasActivePositions = savings.positions.some((p) => p.active);
+  const hasMinBalance = savings.totalClaimable >= MIN_UNLOCKED_FOR_XP;
+  const lastCheckInDay = lastCheckIn > 0 ? Math.floor(lastCheckIn / 86400) : -1;
+  const todayDay = Math.floor(Date.now() / 1000 / 86400);
+  const notCheckedInToday = lastCheckInDay !== todayDay;
+  const canCheckIn = hasActivePositions && hasMinBalance && notCheckedInToday && !savings.isPending && !savings.isConfirming;
+
+  // --- Determine the disabled reason for UI hint ---
+  const disabledReason = useMemo(() => {
+    if (savings.isPending || savings.isConfirming) return "Transaction in progress...";
+    if (!hasActivePositions) return "Create a savings position first";
+    if (!notCheckedInToday) return "Already checked in today - come back tomorrow!";
+    if (!hasMinBalance) return "Need at least 1 ETH unclaimed balance";
+    return null;
+  }, [hasActivePositions, hasMinBalance, notCheckedInToday, savings.isPending, savings.isConfirming]);
 
   useEffect(() => {
     function update() {
@@ -424,7 +486,6 @@ function StreakTrackerCard({
 
       if (lastCheckIn === 0) {
         // Never checked in - show "Ready" instead of 00:00:00
-        setCanCheckIn(true);
         setCanRecover(false);
         setCountdown("");
         return;
@@ -432,12 +493,10 @@ function StreakTrackerCard({
 
       if (secRemaining > 0) {
         // Still in cooldown
-        setCanCheckIn(false);
         setCanRecover(false);
         setCountdown(formatCountdown(secRemaining));
       } else {
         // Cooldown expired - can check in
-        setCanCheckIn(true);
         const hoursSinceCheckIn = (now - lastCheckIn) / 3600;
         // Recovery is possible if between 24-48h and streak was > 0
         if (hoursSinceCheckIn > 24 && hoursSinceCheckIn <= 48 && streak > 0) {
@@ -454,10 +513,11 @@ function StreakTrackerCard({
     return () => clearInterval(interval);
   }, [lastCheckIn, streak]);
 
-  // Watch for write errors and show toast with the actual revert reason
+  // Watch for write errors and show toast with decoded custom error
   useEffect(() => {
     if (savings.writeError) {
-      toast.error("Transaction failed: " + savings.writeError.message);
+      const message = decodeContractError(savings.writeError);
+      toast.error(message);
     }
   }, [savings.writeError]);
 
@@ -472,18 +532,32 @@ function StreakTrackerCard({
   }, [savings.isConfirmed]);
 
   const handleCheckIn = () => {
-    // Pre-validate: user must have at least one active position
-    if (savings.positions.filter((p) => p.active).length === 0) {
-      toast.error("You need at least one active savings position to check in");
+    // Pre-validate: no active positions
+    if (!hasActivePositions) {
+      toast.error("No active savings positions. Create a position first on the Drip Allowance page.");
       return;
     }
+
+    // Pre-validate: already checked in today
+    if (!notCheckedInToday) {
+      toast.error("Already checked in today! Come back tomorrow.");
+      return;
+    }
+
+    // Pre-validate: minimum unclaimed balance (contract requires >= 1 ETH / 1e18 wei)
+    if (!hasMinBalance) {
+      toast.error("Insufficient unlocked balance for check-in. You need at least 1 ETH in unclaimed savings across your positions.");
+      return;
+    }
+
     try {
       savings.checkIn();
       toast.info("Confirm check-in transaction in your wallet...");
       // Refetch data after check-in to update countdown and streak
       setTimeout(() => savings.refetchAll(), 2000);
     } catch (error) {
-      toast.error("Check-in failed: " + (error as Error).message);
+      const message = decodeContractError(error);
+      toast.error("Check-in failed: " + message);
     }
   };
 
@@ -550,18 +624,25 @@ function StreakTrackerCard({
       <div className="space-y-3 pt-2">
         <motion.button
           onClick={handleCheckIn}
-          disabled={savings.isPending || !canCheckIn}
+          disabled={!canCheckIn}
           className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 relative overflow-hidden"
           animate={canCheckIn ? { boxShadow: ["0 0 0px rgba(255,107,0,0)", "0 0 20px rgba(255,107,0,0.5)", "0 0 0px rgba(255,107,0,0)"] } : {}}
           transition={canCheckIn ? { duration: 2, repeat: Infinity } : {}}
         >
-          {savings.isPending ? (
+          {savings.isPending || savings.isConfirming ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <Check className="w-4 h-4" />
           )}
           CHECK IN
         </motion.button>
+
+        {/* Disabled state reason */}
+        {disabledReason && (
+          <p className="text-center text-xs text-muted-foreground">
+            {disabledReason}
+          </p>
+        )}
 
         {/* Countdown */}
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
