@@ -333,8 +333,8 @@ function DripAllowanceContent() {
   return (
     <div className="space-y-4">
       {/* Row 1: Balance Overview + Manage Allowance */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <motion.div custom={0} variants={cardVariants} initial="hidden" animate="visible">
+      <div className="flex flex-col lg:flex-row gap-4">
+        <motion.div className="flex-1 min-w-0" custom={0} variants={cardVariants} initial="hidden" animate="visible">
           <BalanceOverviewCard
             totalDeposited={totalDeposited}
             available={savings.totalClaimable}
@@ -343,21 +343,21 @@ function DripAllowanceContent() {
             yearlyRate={yearlyRate}
           />
         </motion.div>
-        <motion.div custom={1} variants={cardVariants} initial="hidden" animate="visible">
+        <motion.div className="flex-1 min-w-0" custom={1} variants={cardVariants} initial="hidden" animate="visible">
           <AllowanceStreamCard positions={activePositions} savings={savings} />
         </motion.div>
       </div>
 
       {/* Row 2: Your Savings + Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <motion.div custom={2} variants={cardVariants} initial="hidden" animate="visible">
+      <div className="flex flex-col lg:flex-row gap-4">
+        <motion.div className="flex-1 min-w-0" custom={2} variants={cardVariants} initial="hidden" animate="visible">
           <SpendingPowerCard
             totalClaimable={savings.totalClaimable}
             positions={activePositions}
             savings={savings}
           />
         </motion.div>
-        <motion.div custom={3} variants={cardVariants} initial="hidden" animate="visible">
+        <motion.div className="flex-1 min-w-0" custom={3} variants={cardVariants} initial="hidden" animate="visible">
           <TxActivityCard savings={savings} />
         </motion.div>
       </div>

@@ -379,13 +379,13 @@ function FlowProgressContent() {
   if (savings.isLoading) {
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-          <SkeletonCard />
-          <SkeletonCard />
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1 min-w-0"><SkeletonCard /></div>
+          <div className="flex-1 min-w-0"><SkeletonCard /></div>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-          <SkeletonCard />
-          <SkeletonCard />
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1 min-w-0"><SkeletonCard /></div>
+          <div className="flex-1 min-w-0"><SkeletonCard /></div>
         </div>
       </div>
     );
@@ -394,8 +394,8 @@ function FlowProgressContent() {
   return (
     <div className="space-y-4">
       {/* Row 1: Streak Tracker + Next Milestone */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <StaggeredCard index={0}>
+      <div className="flex flex-col lg:flex-row gap-4">
+        <StaggeredCard index={0} className="flex-1 min-w-0">
           <StreakTrackerCard
             streak={streak}
             lastCheckIn={lastCheckIn}
@@ -404,14 +404,14 @@ function FlowProgressContent() {
             address={address}
           />
         </StaggeredCard>
-        <StaggeredCard index={1}>
+        <StaggeredCard index={1} className="flex-1 min-w-0">
           <NextMilestoneCard milestone={milestone} streak={streak} />
         </StaggeredCard>
       </div>
 
       {/* Row 2: XP Multiplier + Achievement Badges */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <StaggeredCard index={2}>
+      <div className="flex flex-col lg:flex-row gap-4">
+        <StaggeredCard index={2} className="flex-1 min-w-0">
           <XPMultiplierCard
             totalXP={totalXP}
             multiplier={multiplier}
@@ -421,7 +421,7 @@ function FlowProgressContent() {
             hasActivePosition={activePositionCount > 0}
           />
         </StaggeredCard>
-        <StaggeredCard index={3}>
+        <StaggeredCard index={3} className="flex-1 min-w-0">
           <BadgesEarnedCard
             streak={streak}
             totalXP={totalXP}
