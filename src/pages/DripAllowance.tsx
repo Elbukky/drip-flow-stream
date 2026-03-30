@@ -332,7 +332,7 @@ function DripAllowanceContent() {
   return (
     <div className="space-y-6">
       {/* Row 1: Balance Overview + Manage Allowance */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <motion.div custom={0} variants={cardVariants} initial="hidden" animate="visible">
           <BalanceOverviewCard
             totalDeposited={totalDeposited}
@@ -348,7 +348,7 @@ function DripAllowanceContent() {
       </div>
 
       {/* Row 2: Your Savings + Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <motion.div custom={2} variants={cardVariants} initial="hidden" animate="visible">
           <SpendingPowerCard
             totalClaimable={savings.totalClaimable}

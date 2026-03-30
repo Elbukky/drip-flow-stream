@@ -379,11 +379,11 @@ function FlowProgressContent() {
   if (savings.isLoading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           <SkeletonCard />
           <SkeletonCard />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           <SkeletonCard />
           <SkeletonCard />
         </div>
@@ -394,7 +394,7 @@ function FlowProgressContent() {
   return (
     <div className="space-y-6">
       {/* Row 1: Streak Tracker + Next Milestone */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <StaggeredCard index={0}>
           <StreakTrackerCard
             streak={streak}
@@ -410,7 +410,7 @@ function FlowProgressContent() {
       </div>
 
       {/* Row 2: XP Multiplier + Achievement Badges (side by side on desktop) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <StaggeredCard index={2}>
           <XPMultiplierCard
             totalXP={totalXP}
@@ -727,9 +727,11 @@ function StreakTrackerCard({
           <span className="text-[11px] text-muted-foreground font-medium">Last 30 days</span>
         </div>
         <style>{`
-          @keyframes fireGlow {
-            0% { filter: drop-shadow(0 0 2px #F59E0B) drop-shadow(0 0 4px #F97316); transform: scale(1); }
-            100% { filter: drop-shadow(0 0 6px #F59E0B) drop-shadow(0 0 12px #F97316); transform: scale(1.1); }
+          @keyframes flame-flicker {
+            0%, 100% { transform: scaleY(1) scaleX(1) rotate(0deg); }
+            25% { transform: scaleY(1.1) scaleX(0.95) rotate(-2deg); }
+            50% { transform: scaleY(0.95) scaleX(1.05) rotate(1deg); }
+            75% { transform: scaleY(1.05) scaleX(0.98) rotate(-1deg); }
           }
         `}</style>
         <div className="grid grid-cols-6 gap-1.5">
@@ -746,24 +748,18 @@ function StreakTrackerCard({
                 >
                   {isCheckedIn ? (
                     <div
-                      className="w-8 h-8 rounded-md flex items-center justify-center relative"
+                      key={day.dayNum}
+                      className="w-8 h-8 flex items-center justify-center"
                       title={day.date.toLocaleDateString()}
-                      style={day.isToday ? { boxShadow: '0 0 0 2px rgba(255,107,0,0.5)' } : undefined}
+                      style={{
+                        filter: 'drop-shadow(0 0 6px rgba(245,158,11,0.6))',
+                        ...(day.isToday ? { boxShadow: '0 0 0 2px rgba(255,107,0,0.5)', borderRadius: '6px' } : {}),
+                      }}
                     >
-                      <div
-                        className="absolute inset-0 rounded-md"
-                        style={{
-                          background: 'rgba(245,158,11,0.15)',
-                          animation: 'fireGlow 1.5s ease-in-out infinite alternate',
-                        }}
-                      />
-                      <span
-                        className="relative text-base leading-none"
-                        style={{
-                          filter: 'drop-shadow(0 0 4px #F59E0B) drop-shadow(0 0 8px #F97316)',
-                          animation: 'fireGlow 1.5s ease-in-out infinite alternate',
-                        }}
-                      >🔥</span>
+                      <svg viewBox="0 0 24 24" className="w-6 h-6" style={{animation: 'flame-flicker 0.8s ease-in-out infinite'}}>
+                        <path d="M12 2c0 0-7 8-7 13a7 7 0 0014 0c0-5-7-13-7-13z" fill="#F59E0B"/>
+                        <path d="M12 9c0 0-3.5 4-3.5 6.5a3.5 3.5 0 007 0c0-2.5-3.5-6.5-3.5-6.5z" fill="#FCD34D"/>
+                      </svg>
                     </div>
                   ) : (
                     <div
@@ -783,7 +779,7 @@ function StreakTrackerCard({
         </div>
         <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
           <div className="flex items-center gap-1">
-            <span className="text-[10px] leading-none">🔥</span>
+            <svg viewBox="0 0 24 24" className="w-2.5 h-2.5"><path d="M12 2c0 0-7 8-7 13a7 7 0 0014 0c0-5-7-13-7-13z" fill="#F59E0B"/></svg>
             <span>Checked in</span>
           </div>
           <div className="flex items-center gap-1">
@@ -875,7 +871,7 @@ function StreakTrackerCard({
           </div>
           {checkedInToday && (
             <span className="text-[10px] text-muted-foreground/70">
-              Resets at 12:00 AM UTC (6:00 AM Dhaka)
+              Resets at 00:00 UTC
             </span>
           )}
         </div>
