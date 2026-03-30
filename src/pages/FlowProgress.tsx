@@ -327,7 +327,7 @@ export default function FlowProgressPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <AppHeader />
-        <div className="flex-1 max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full">
+        <div className="flex-1 max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full flex flex-col">
           <PageTabs />
           <motion.div
             className="panel flex flex-col items-center justify-center py-16 gap-4"
@@ -350,9 +350,11 @@ export default function FlowProgressPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader />
-      <div className="flex-1 max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full">
+      <div className="flex-1 max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full flex flex-col">
         <PageTabs />
-        <FlowProgressContent />
+        <div className="flex-1">
+          <FlowProgressContent />
+        </div>
       </div>
       <AppFooter />
     </div>
@@ -638,11 +640,11 @@ function StreakTrackerCard({
       // UTC day number matching contract's block.timestamp / 86400
       const utcDayNum = Math.floor(d.getTime() / 1000 / 86400);
       const isToday = i === 0;
-      const checkedIn = checkInDays.has(utcDayNum);
+      const checkedIn = checkInDays.has(utcDayNum) || (isToday && checkedInToday);
       days.push({ date: d, dayNum: utcDayNum, isToday, checkedIn });
     }
     return days;
-  }, [checkInDays]);
+  }, [checkInDays, checkedInToday]);
 
   return (
     <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">

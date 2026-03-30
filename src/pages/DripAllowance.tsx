@@ -252,7 +252,7 @@ export default function DripAllowancePage() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <AppHeader />
-        <div className="flex-1 max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full">
+        <div className="flex-1 max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full flex flex-col">
           <PageTabs />
           <motion.div
             className="panel flex flex-col items-center justify-center py-16 gap-4"
@@ -272,9 +272,11 @@ export default function DripAllowancePage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader />
-      <div className="flex-1 max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full">
+      <div className="flex-1 max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full flex flex-col">
         <PageTabs />
-        <DripAllowanceContent />
+        <div className="flex-1">
+          <DripAllowanceContent />
+        </div>
       </div>
       <AppFooter />
     </div>
