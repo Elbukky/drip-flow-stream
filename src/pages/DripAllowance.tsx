@@ -694,6 +694,84 @@ function TopUpForm({
     return positions.find((p) => p.id === parseInt(selectedId)) ?? null;
   }, [selectedId, positions]);
 
+  // ---------------------------------------------------------------------------
+  // Compute preview values for the top-up impact summary
+  // ---------------------------------------------------------------------------
+  const topUpPreview = useMemo(() => {
+    if (!selectedPosition || !topUpAmount || parseFloat(topUpAmount) <= 0) return null;
+
+    const pos = selectedPosition;
+    const freqSecs = FREQUENCY_SECONDS[(pos.frequency ?? 0) as UnlockFrequency] || 86400;
+    const freqLabel = FREQUENCY_LABELS[(pos.frequency ?? 0) as UnlockFrequency].toLowerCase();
+    const topUpVal = parseFloat(topUpAmount);
+    const nowSec = Math.floor(Date.now() / 1000);
+    const startSec = Number(pos.startTime);
+    const elapsed = Math.max(0, nowSec - startSec);
+    const elapsedPeriods = Math.floor(elapsed / freqSecs);
+    const totalPeriods = pos.durationDays; // durationDays is actually period count
+    const remainingPeriods = Math.max(0, totalPeriods - elapsedPeriods);
+    const currentBalance = Number(pos.totalDeposited - pos.claimed) / 1e18;
+
+    if (pos.mode === 0) {
+      // Fixed mode: always extends duration, no toggle
+      const periodAmount = Number(pos.dailyAmount) / 1e18;
+      const extraPeriods = periodAmount > 0 ? Math.floor(topUpVal / periodAmount) : 0;
+      const newTotalPeriods = remainingPeriods + extraPeriods;
+
+      return {
+        mode: "fixed" as const,
+        adding: topUpVal,
+        freqLabel,
+        periodAmount,
+        currentPeriods: remainingPeriods,
+        extraPeriods,
+        newTotalPeriods,
+      };
+    } else {
+      // Percentage mode: two strategies
+      const currentPct = pos.percentBps / 100; // e.g. 10 for 10%
+      const currentBps = pos.percentBps;
+
+      if (!recalculate) {
+        // Extend Duration: same % rate, add more periods proportionally
+        const oldRemaining = currentBalance;
+        const extraPeriods = oldRemaining > 0
+          ? Math.max(1, Math.floor((remainingPeriods * topUpVal) / oldRemaining))
+          : remainingPeriods;
+        const newTotalPeriods = remainingPeriods + extraPeriods;
+
+        return {
+          mode: "percentage_extend" as const,
+          adding: topUpVal,
+          freqLabel,
+          currentPct,
+          currentBps,
+          currentPeriods: remainingPeriods,
+          extraPeriods,
+          newTotalPeriods,
+        };
+      } else {
+        // Increase Rate: recalculate % to release more per period over remaining time
+        const newBps = remainingPeriods > 0 ? Math.min(10000, Math.max(1, Math.floor(10000 / remainingPeriods))) : currentBps;
+        const newPct = newBps / 100;
+        const newBalance = currentBalance + topUpVal;
+        const newPerPeriod = (newBalance * newBps) / 10000;
+
+        return {
+          mode: "percentage_increase" as const,
+          adding: topUpVal,
+          freqLabel,
+          currentPct,
+          currentBps,
+          newPct,
+          newBps,
+          remainingPeriods,
+          newPerPeriod,
+        };
+      }
+    }
+  }, [selectedPosition, topUpAmount, recalculate]);
+
   const handleTopUp = () => {
     if (!selectedId) { toast.error("Select a position"); return; }
     if (!topUpAmount || parseFloat(topUpAmount) <= 0) { toast.error("Enter a top-up amount"); return; }
@@ -713,6 +791,7 @@ function TopUpForm({
 
   return (
     <div className="space-y-4">
+      {/* Position selector */}
       <div className="space-y-1">
         <label className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">Select Position</label>
         <Select value={selectedId} onValueChange={setSelectedId}>
@@ -733,6 +812,7 @@ function TopUpForm({
         </Select>
       </div>
 
+      {/* Position details */}
       {selectedPosition && (
         <motion.div
           className="bg-secondary/50 rounded-lg p-3.5 space-y-1.5 text-xs border border-border/50"
@@ -753,7 +833,7 @@ function TopUpForm({
             <span className="font-mono-display font-medium">
               {selectedPosition.mode === 0
                 ? `$${formatUSDCValue(selectedPosition.dailyAmount)}`
-                : `~$${formatUSDCValue((selectedPosition.totalDeposited - selectedPosition.claimed) * BigInt(selectedPosition.percentBps) / 10000n)}/period`}
+                : `${(selectedPosition.percentBps / 100).toFixed(2)}% (~$${formatUSDCValue((selectedPosition.totalDeposited - selectedPosition.claimed) * BigInt(selectedPosition.percentBps) / 10000n)}/period)`}
             </span>
           </div>
           <div className="flex justify-between">
@@ -767,6 +847,7 @@ function TopUpForm({
         </motion.div>
       )}
 
+      {/* Top-up amount input */}
       <div className="space-y-1">
         <label className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">Top-Up Amount (USDC)</label>
         <Input
@@ -778,36 +859,175 @@ function TopUpForm({
         />
       </div>
 
+      {/* ================================================================= */}
+      {/* CHANGE 1: Percentage mode - two descriptive strategy cards          */}
+      {/* ================================================================= */}
       {selectedPosition?.mode === 1 && (
         <div className="space-y-2">
           <label className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">Top-Up Strategy</label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="space-y-2">
+            {/* Option A: Extend Duration (recalculate = false) - DEFAULT */}
             <button
               onClick={() => setRecalculate(false)}
-              className={`p-3 rounded-lg border text-left transition-all duration-200 ${
+              className={`w-full p-3.5 rounded-lg text-left transition-all duration-200 ${
                 !recalculate
-                  ? "border-primary bg-primary/10 text-foreground shadow-[0_0_10px_rgba(255,107,0,0.15)]"
-                  : "border-border bg-secondary/50 text-muted-foreground hover:border-primary/30"
+                  ? "border-l-[3px] border-l-primary border border-primary/30 bg-primary/5"
+                  : "border border-border bg-secondary/30 opacity-60 hover:opacity-80 hover:border-border/80"
               }`}
             >
-              <p className="text-xs font-bold">Keep Current Schedule</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Your unlock rate stays the same. Extra funds extend the duration.</p>
+              <div className="flex items-center gap-2 mb-1">
+                <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
+                <p className="text-xs font-bold text-foreground">Extend Duration</p>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed ml-[22px]">
+                Same % rate per period. Your extra funds add more periods.
+              </p>
+              {topUpPreview && topUpPreview.mode === "percentage_extend" && !recalculate && (
+                <p className="text-[10px] text-primary/80 mt-1.5 ml-[22px] font-mono-display">
+                  Current: {topUpPreview.currentPct.toFixed(2)}% every {topUpPreview.freqLabel}.
+                  Adding ${topUpPreview.adding.toFixed(2)} adds ~{topUpPreview.extraPeriods} more period{topUpPreview.extraPeriods !== 1 ? "s" : ""}.
+                </p>
+              )}
             </button>
+
+            {/* Option B: Increase Rate (recalculate = true) */}
             <button
               onClick={() => setRecalculate(true)}
-              className={`p-3 rounded-lg border text-left transition-all duration-200 ${
+              className={`w-full p-3.5 rounded-lg text-left transition-all duration-200 ${
                 recalculate
-                  ? "border-primary bg-primary/10 text-foreground shadow-[0_0_10px_rgba(255,107,0,0.15)]"
-                  : "border-border bg-secondary/50 text-muted-foreground hover:border-primary/30"
+                  ? "border-l-[3px] border-l-primary border border-primary/30 bg-primary/5"
+                  : "border border-border bg-secondary/30 opacity-60 hover:opacity-80 hover:border-border/80"
               }`}
             >
-              <p className="text-xs font-bold">Recalculate Rate</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Adjusts the unlock rate to distribute evenly across remaining periods.</p>
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className="w-3.5 h-3.5 text-primary shrink-0" />
+                <p className="text-xs font-bold text-foreground">Increase Rate</p>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed ml-[22px]">
+                Recalculates your % to release more per period over remaining time.
+              </p>
+              {topUpPreview && topUpPreview.mode === "percentage_increase" && recalculate && (
+                <p className="text-[10px] text-primary/80 mt-1.5 ml-[22px] font-mono-display">
+                  New rate: ~{topUpPreview.newPct.toFixed(2)}% every {topUpPreview.freqLabel} for remaining {topUpPreview.remainingPeriods} period{topUpPreview.remainingPeriods !== 1 ? "s" : ""}.
+                </p>
+              )}
             </button>
           </div>
         </div>
       )}
 
+      {/* ================================================================= */}
+      {/* CHANGE 2: Fixed mode - single clear explanation (no toggle)        */}
+      {/* ================================================================= */}
+      {selectedPosition?.mode === 0 && topUpAmount && parseFloat(topUpAmount) > 0 && (
+        <motion.div
+          className="bg-secondary/50 rounded-lg p-3.5 border border-border/50"
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <div className="flex items-center gap-2 mb-1">
+            <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
+            <p className="text-xs font-bold text-foreground">Adds More Periods</p>
+          </div>
+          <p className="text-[11px] text-muted-foreground leading-relaxed ml-[22px]">
+            Your extra funds will add more {FREQUENCY_LABELS[(selectedPosition.frequency ?? 0) as UnlockFrequency].toLowerCase()} periods
+            at the same rate of <span className="font-mono-display text-foreground">${formatUSDCValue(selectedPosition.dailyAmount)}</span> per {FREQUENCY_LABELS[(selectedPosition.frequency ?? 0) as UnlockFrequency].toLowerCase()} period.
+          </p>
+          {topUpPreview && topUpPreview.mode === "fixed" && (
+            <p className="text-[10px] text-primary/80 mt-1.5 ml-[22px] font-mono-display">
+              Adding ${topUpPreview.adding.toFixed(2)} adds ~{topUpPreview.extraPeriods} more {topUpPreview.freqLabel} period{topUpPreview.extraPeriods !== 1 ? "s" : ""}.
+            </p>
+          )}
+        </motion.div>
+      )}
+
+      {/* ================================================================= */}
+      {/* CHANGE 3: Impact preview summary box                               */}
+      {/* ================================================================= */}
+      {topUpPreview && (
+        <motion.div
+          className="bg-card border border-primary/20 rounded-xl p-4 space-y-3"
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-primary" />
+            <p className="text-xs font-bold text-foreground uppercase tracking-wide">Top-Up Summary</p>
+          </div>
+          <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+          <div className="space-y-2 text-xs">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Adding</span>
+              <span className="font-mono-display font-semibold text-foreground">${topUpPreview.adding.toFixed(4)} USDC</span>
+            </div>
+
+            {topUpPreview.mode === "fixed" && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Mode</span>
+                  <span className="font-medium text-foreground">Add More Periods</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Rate stays</span>
+                  <span className="font-mono-display text-foreground">${topUpPreview.periodAmount.toFixed(4)} / {topUpPreview.freqLabel}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Duration</span>
+                  <span className="font-mono-display text-foreground">
+                    {topUpPreview.currentPeriods} <span className="text-muted-foreground mx-1">-&gt;</span> {topUpPreview.newTotalPeriods} {topUpPreview.freqLabel} periods
+                  </span>
+                </div>
+              </>
+            )}
+
+            {topUpPreview.mode === "percentage_extend" && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Mode</span>
+                  <span className="font-medium text-foreground">Extend Duration</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Rate stays</span>
+                  <span className="font-mono-display text-foreground">{topUpPreview.currentPct.toFixed(2)}% {topUpPreview.freqLabel}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Duration</span>
+                  <span className="font-mono-display text-foreground">
+                    {topUpPreview.currentPeriods} <span className="text-muted-foreground mx-1">-&gt;</span> {topUpPreview.newTotalPeriods} {topUpPreview.freqLabel} periods
+                  </span>
+                </div>
+              </>
+            )}
+
+            {topUpPreview.mode === "percentage_increase" && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Mode</span>
+                  <span className="font-medium text-foreground">Increase Rate</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Rate changes</span>
+                  <span className="font-mono-display text-foreground">
+                    {topUpPreview.currentPct.toFixed(2)}% <span className="text-muted-foreground mx-1">-&gt;</span> {topUpPreview.newPct.toFixed(2)}% {topUpPreview.freqLabel}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">New per period</span>
+                  <span className="font-mono-display text-foreground">~${topUpPreview.newPerPeriod.toFixed(4)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Remaining</span>
+                  <span className="font-mono-display text-foreground">{topUpPreview.remainingPeriods} {topUpPreview.freqLabel} periods</span>
+                </div>
+              </>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Confirm button */}
       <motion.button
         onClick={handleTopUp}
         disabled={savings.isPending}
@@ -822,12 +1042,13 @@ function TopUpForm({
         />
         <span className="relative flex items-center gap-2">
           {savings.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          Top Up Funds
+          Confirm Top Up
         </span>
       </motion.button>
     </div>
   );
 }
+
 
 
 // ---------------------------------------------------------------------------

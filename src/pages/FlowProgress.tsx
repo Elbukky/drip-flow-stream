@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useAccount } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
+import { parseAbiItem } from "viem";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
 import { useGamifiedSavings } from "@/hooks/useGamifiedSavings";
-import { formatUSDCValue, MIN_LOCKED_FOR_XP, MIN_LOCKED_MULT, STREAK_RECOVERY_FEE } from "@/lib/gamified-savings";
+import { formatUSDCValue, MIN_LOCKED_FOR_XP, MIN_LOCKED_MULT, STREAK_RECOVERY_FEE, GAMIFIED_SAVINGS_ADDRESS } from "@/lib/gamified-savings";
 import {
   Shield,
   Star,
@@ -320,7 +321,7 @@ function getNextMilestone(streak: number) {
 // ---------------------------------------------------------------------------
 
 export default function FlowProgressPage() {
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
 
   if (!isConnected) {
     return (
@@ -359,6 +360,7 @@ export default function FlowProgressPage() {
 }
 
 function FlowProgressContent() {
+  const { address } = useAccount();
   const savings = useGamifiedSavings();
 
   const streak = Number(savings.userStats.streak);
@@ -399,6 +401,7 @@ function FlowProgressContent() {
             lastCheckIn={lastCheckIn}
             savings={savings}
             totalXP={totalXP}
+            address={address}
           />
         </StaggeredCard>
         <StaggeredCard index={1}>
@@ -442,17 +445,67 @@ function StreakTrackerCard({
   lastCheckIn,
   savings,
   totalXP,
+  address,
 }: {
   streak: number;
   lastCheckIn: number;
   savings: ReturnType<typeof useGamifiedSavings>;
   totalXP: bigint;
+  address: `0x${string}` | undefined;
 }) {
   const [countdown, setCountdown] = useState("");
   const [canRecover, setCanRecover] = useState(false);
   const [showFire, setShowFire] = useState(false);
   const [xpEarnedToday, setXpEarnedToday] = useState<number | null>(null);
   const prevXPRef = useRef(totalXP);
+
+  // --- FIX 1: Fetch real check-in history from on-chain event logs ---
+  const publicClient = usePublicClient();
+  const [checkInDays, setCheckInDays] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (!publicClient || !address) return;
+
+    const fetchCheckInHistory = async () => {
+      try {
+        // Get logs for the last ~30 days of blocks
+        // Base Sepolia ~2s blocks, 30 days ~ 1,296,000 blocks
+        const currentBlock = await publicClient.getBlockNumber();
+        const fromBlock = currentBlock - BigInt(1_300_000);
+
+        const logs = await publicClient.getLogs({
+          address: GAMIFIED_SAVINGS_ADDRESS as `0x${string}`,
+          event: parseAbiItem('event CheckIn(address indexed user, uint256 xpEarned, uint256 newStreak)'),
+          args: { user: address },
+          fromBlock: fromBlock > 0n ? fromBlock : 0n,
+          toBlock: 'latest',
+        });
+
+        // The event doesn't have a day field, so derive the UTC day
+        // from each log's block timestamp
+        const days = new Set<number>();
+        const blockCache = new Map<bigint, bigint>(); // blockNumber -> timestamp
+
+        for (const log of logs) {
+          if (log.blockNumber === null) continue;
+          let timestamp = blockCache.get(log.blockNumber);
+          if (timestamp === undefined) {
+            const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
+            timestamp = block.timestamp;
+            blockCache.set(log.blockNumber, timestamp);
+          }
+          const utcDay = Number(timestamp / BigInt(86400));
+          days.add(utcDay);
+        }
+        setCheckInDays(days);
+      } catch (err) {
+        console.error('Failed to fetch check-in history:', err);
+      }
+    };
+
+    fetchCheckInHistory();
+  }, [publicClient, address, lastCheckIn]); // re-fetch when lastCheckIn changes
+
 
   // Compute canCheckIn from contract requirements
   const hasActivePositions = savings.positions.some((p) => p.active);
@@ -473,9 +526,10 @@ function StreakTrackerCard({
 
   useEffect(() => {
     function update() {
-      const now = Math.floor(Date.now() / 1000);
-      const nextCheckIn = lastCheckIn + 86400;
-      const secRemaining = nextCheckIn - now;
+      const nowSec = Math.floor(Date.now() / 1000);
+      const currentUtcDay = Math.floor(nowSec / 86400);
+      const lastCheckInDay = lastCheckIn > 0 ? Math.floor(lastCheckIn / 86400) : -1;
+      const isCheckedInToday = lastCheckInDay === currentUtcDay;
 
       if (lastCheckIn === 0) {
         setCanRecover(false);
@@ -483,12 +537,22 @@ function StreakTrackerCard({
         return;
       }
 
-      if (secRemaining > 0) {
+      // Countdown to next UTC midnight (contract day boundary)
+      const nextUtcMidnight = (currentUtcDay + 1) * 86400;
+      const secRemaining = Math.max(0, nextUtcMidnight - nowSec);
+
+      if (isCheckedInToday) {
+        // Already checked in today -- show countdown to next UTC midnight
         setCanRecover(false);
         setCountdown(formatCountdown(secRemaining));
       } else {
-        const hoursSinceCheckIn = (now - lastCheckIn) / 3600;
-        if (hoursSinceCheckIn > 24 && hoursSinceCheckIn <= 48 && streak > 0) {
+        // Haven't checked in today
+        const daysSinceLastCheckIn = currentUtcDay - lastCheckInDay;
+        if (daysSinceLastCheckIn === 1 && streak > 0) {
+          // Missed exactly 0 days (yesterday was last check-in) -- no recovery needed
+          setCanRecover(false);
+        } else if (daysSinceLastCheckIn === 2 && streak > 0) {
+          // Missed exactly 1 day -- recovery available
           setCanRecover(true);
         } else {
           setCanRecover(false);
@@ -563,25 +627,22 @@ function StreakTrackerCard({
     toast.info("Confirm streak recovery (costs 0.01 ETH)...");
   };
 
-  // Generate streak calendar data for last 30 days
+  // Generate streak calendar from real on-chain CheckIn event logs
   const calendarDays = useMemo(() => {
     const days: { date: Date; dayNum: number; isToday: boolean; checkedIn: boolean }[] = [];
     const now = new Date();
     for (let i = 29; i >= 0; i--) {
       const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      d.setHours(0, 0, 0, 0);
-      const dayNum = Math.floor(d.getTime() / 1000 / 86400);
+      d.setUTCDate(d.getUTCDate() - i);
+      d.setUTCHours(0, 0, 0, 0);
+      // UTC day number matching contract's block.timestamp / 86400
+      const utcDayNum = Math.floor(d.getTime() / 1000 / 86400);
       const isToday = i === 0;
-      // We know the user's current streak and lastCheckIn. We can estimate:
-      // If streak >= (i+1) days ago and checked in today or recently, those days were check-in days
-      // Simple heuristic: the last `streak` consecutive days ending at lastCheckIn day were checked in
-      const lastDay = lastCheckIn > 0 ? Math.floor(lastCheckIn / 86400) : -1;
-      const checkedIn = lastDay >= 0 && dayNum <= lastDay && dayNum > lastDay - streak;
-      days.push({ date: d, dayNum, isToday, checkedIn });
+      const checkedIn = checkInDays.has(utcDayNum);
+      days.push({ date: d, dayNum: utcDayNum, isToday, checkedIn });
     }
     return days;
-  }, [streak, lastCheckIn]);
+  }, [checkInDays]);
 
   return (
     <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
@@ -770,21 +831,27 @@ function StreakTrackerCard({
         )}
 
         {/* Countdown timer */}
-        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-          <Clock className="w-3 h-3" />
-          {countdown === "" ? (
-            <span className="font-mono-display text-primary font-bold">
-              Ready for first check-in!
-            </span>
-          ) : checkedInToday ? (
-            <span>
-              Next check-in in:{" "}
-              <span className="font-mono-display text-foreground">{countdown}</span>
-            </span>
-          ) : (
-            <span>
-              Cooldown:{" "}
-              <span className="font-mono-display text-foreground">{countdown}</span>
+        <div className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <Clock className="w-3 h-3" />
+            {countdown === "" ? (
+              <span className="font-mono-display text-primary font-bold">
+                Ready for first check-in!
+              </span>
+            ) : checkedInToday ? (
+              <span>
+                Next check-in in:{" "}
+                <span className="font-mono-display text-foreground">{countdown}</span>
+              </span>
+            ) : (
+              <span className="font-mono-display text-primary font-bold">
+                Check-in available now!
+              </span>
+            )}
+          </div>
+          {checkedInToday && (
+            <span className="text-[10px] text-muted-foreground/70">
+              Resets at 12:00 AM UTC (6:00 AM Dhaka)
             </span>
           )}
         </div>
