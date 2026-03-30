@@ -1412,7 +1412,7 @@ function TxActivityCard({ savings }: { savings: ReturnType<typeof useGamifiedSav
 
       <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
-      <div className="space-y-0 max-h-[340px] overflow-y-auto">
+      <div className="space-y-0 max-h-[460px] overflow-y-auto">
         {isLoading && events.length === 0 && derivedEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 gap-2">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
