@@ -325,9 +325,9 @@ export default function FlowProgressPage() {
 
   if (!isConnected) {
     return (
-      <div className="dashboard-grid bg-background">
+      <div className="min-h-screen bg-background flex flex-col">
         <AppHeader />
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full">
+        <div className="flex-1 max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full flex flex-col">
           <PageTabs />
           <motion.div
             className="panel flex flex-col items-center justify-center py-16 gap-4"
@@ -348,7 +348,7 @@ export default function FlowProgressPage() {
   }
 
   return (
-    <div className="dashboard-grid bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <AppHeader />
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full">
         <PageTabs />
@@ -379,11 +379,11 @@ function FlowProgressContent() {
   if (savings.isLoading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           <SkeletonCard />
           <SkeletonCard />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           <SkeletonCard />
           <SkeletonCard />
         </div>
@@ -394,8 +394,8 @@ function FlowProgressContent() {
   return (
     <div className="space-y-6">
       {/* Row 1: Streak Tracker + Next Milestone */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-        <StaggeredCard index={0} className="h-full flex flex-col">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <StaggeredCard index={0}>
           <StreakTrackerCard
             streak={streak}
             lastCheckIn={lastCheckIn}
@@ -404,14 +404,14 @@ function FlowProgressContent() {
             address={address}
           />
         </StaggeredCard>
-        <StaggeredCard index={1} className="h-full flex flex-col">
+        <StaggeredCard index={1}>
           <NextMilestoneCard milestone={milestone} streak={streak} />
         </StaggeredCard>
       </div>
 
       {/* Row 2: XP Multiplier + Achievement Badges (side by side on desktop) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-        <StaggeredCard index={2} className="h-full flex flex-col">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <StaggeredCard index={2}>
           <XPMultiplierCard
             totalXP={totalXP}
             multiplier={multiplier}
@@ -421,7 +421,7 @@ function FlowProgressContent() {
             hasActivePosition={activePositionCount > 0}
           />
         </StaggeredCard>
-        <StaggeredCard index={3} className="h-full flex flex-col">
+        <StaggeredCard index={3}>
           <BadgesEarnedCard
             streak={streak}
             totalXP={totalXP}

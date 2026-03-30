@@ -250,9 +250,9 @@ export default function DripAllowancePage() {
 
   if (!isConnected) {
     return (
-      <div className="dashboard-grid bg-background">
+      <div className="min-h-screen bg-background flex flex-col">
         <AppHeader />
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full">
+        <div className="flex-1 max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full flex flex-col">
           <PageTabs />
           <motion.div
             className="panel flex flex-col items-center justify-center py-16 gap-4"
@@ -270,7 +270,7 @@ export default function DripAllowancePage() {
   }
 
   return (
-    <div className="dashboard-grid bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <AppHeader />
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full">
         <PageTabs />
@@ -332,8 +332,8 @@ function DripAllowanceContent() {
   return (
     <div className="space-y-6">
       {/* Row 1: Balance Overview + Manage Allowance */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-        <motion.div className="h-full flex flex-col" custom={0} variants={cardVariants} initial="hidden" animate="visible">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <motion.div custom={0} variants={cardVariants} initial="hidden" animate="visible">
           <BalanceOverviewCard
             totalDeposited={totalDeposited}
             available={savings.totalClaimable}
@@ -342,27 +342,13 @@ function DripAllowanceContent() {
             yearlyRate={yearlyRate}
           />
         </motion.div>
-        <motion.div className="h-full flex flex-col" custom={1} variants={cardVariants} initial="hidden" animate="visible">
+        <motion.div custom={1} variants={cardVariants} initial="hidden" animate="visible">
           <AllowanceStreamCard positions={activePositions} savings={savings} />
         </motion.div>
       </div>
 
       {/* Row 2: Your Savings + Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-        <motion.div className="h-full flex flex-col" custom={2} variants={cardVariants} initial="hidden" animate="visible">
-          <SpendingPowerCard
-            totalClaimable={savings.totalClaimable}
-            positions={activePositions}
-            savings={savings}
-          />
-        </motion.div>
-        <motion.div className="h-full flex flex-col" custom={3} variants={cardVariants} initial="hidden" animate="visible">
-          <TxActivityCard />
-        </motion.div>
-      </div>
-
-      {/* Row 2: Your Savings + Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <motion.div custom={2} variants={cardVariants} initial="hidden" animate="visible">
           <SpendingPowerCard
             totalClaimable={savings.totalClaimable}
