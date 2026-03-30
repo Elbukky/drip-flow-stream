@@ -726,9 +726,16 @@ function StreakTrackerCard({
           <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-[11px] text-muted-foreground font-medium">Last 30 days</span>
         </div>
+        <style>{`
+          @keyframes fireGlow {
+            0% { filter: drop-shadow(0 0 2px #F59E0B) drop-shadow(0 0 4px #F97316); transform: scale(1); }
+            100% { filter: drop-shadow(0 0 6px #F59E0B) drop-shadow(0 0 12px #F97316); transform: scale(1.1); }
+          }
+        `}</style>
         <div className="grid grid-cols-6 gap-1.5">
             {calendarDays.map((day, i) => {
               const dayLabel = day.date.getDate().toString();
+              const isCheckedIn = day.checkedIn;
               return (
                 <motion.div
                   key={i}
@@ -737,27 +744,46 @@ function StreakTrackerCard({
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: i * 0.015, duration: 0.25 }}
                 >
-                  <div
-                    className={`w-8 h-8 rounded-md flex items-center justify-center text-[10px] font-mono-display font-medium transition-all duration-200 ${
-                      day.isToday
-                        ? day.checkedIn
-                          ? "bg-primary text-primary-foreground ring-2 ring-primary/50 shadow-[0_0_8px_rgba(255,107,0,0.4)]"
-                          : "bg-secondary ring-2 ring-primary/40 text-foreground animate-pulse"
-                        : day.checkedIn
-                        ? "bg-primary/80 text-primary-foreground"
-                        : "bg-secondary/50 text-muted-foreground/60"
-                    }`}
-                    title={day.date.toLocaleDateString()}
-                  >
-                    {dayLabel}
-                  </div>
+                  {isCheckedIn ? (
+                    <div
+                      className="w-8 h-8 rounded-md flex items-center justify-center relative"
+                      title={day.date.toLocaleDateString()}
+                      style={day.isToday ? { boxShadow: '0 0 0 2px rgba(255,107,0,0.5)' } : undefined}
+                    >
+                      <div
+                        className="absolute inset-0 rounded-md"
+                        style={{
+                          background: 'rgba(245,158,11,0.15)',
+                          animation: 'fireGlow 1.5s ease-in-out infinite alternate',
+                        }}
+                      />
+                      <span
+                        className="relative text-base leading-none"
+                        style={{
+                          filter: 'drop-shadow(0 0 4px #F59E0B) drop-shadow(0 0 8px #F97316)',
+                          animation: 'fireGlow 1.5s ease-in-out infinite alternate',
+                        }}
+                      >🔥</span>
+                    </div>
+                  ) : (
+                    <div
+                      className={`w-8 h-8 rounded-md flex items-center justify-center text-[10px] font-mono-display font-medium transition-all duration-200 ${
+                        day.isToday
+                          ? "bg-secondary ring-2 ring-primary/40 text-foreground animate-pulse"
+                          : "bg-secondary/50 text-muted-foreground/60"
+                      }`}
+                      title={day.date.toLocaleDateString()}
+                    >
+                      {dayLabel}
+                    </div>
+                  )}
                 </motion.div>
               );
             })}
         </div>
         <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
           <div className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-sm bg-primary/80" />
+            <span className="text-[10px] leading-none">🔥</span>
             <span>Checked in</span>
           </div>
           <div className="flex items-center gap-1">

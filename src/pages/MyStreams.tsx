@@ -220,10 +220,12 @@ function StreamList({
   }
 
   const [streamIds, total] = streamsResult;
+  // Reverse so newest streams appear first
+  const sortedIds = [...streamIds].reverse();
 
   return (
     <div className="space-y-4">
-      {streamIds.map((streamId: bigint) => (
+      {sortedIds.map((streamId: bigint) => (
         <StreamCard
           key={streamId.toString()}
           streamId={streamId}
@@ -457,10 +459,12 @@ function CreatorStreams() {
   }
 
   const [streamIds, total] = streamsResult;
+  // Reverse so newest streams appear first
+  const sortedIds = [...streamIds].reverse();
 
   return (
     <div className="space-y-4">
-      {streamIds.map((streamId: bigint) => (
+      {sortedIds.map((streamId: bigint) => (
         <CreatorStreamCard
           key={streamId.toString()}
           streamId={streamId}
