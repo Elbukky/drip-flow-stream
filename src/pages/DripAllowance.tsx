@@ -41,6 +41,7 @@ import {
   ReferenceLine,
 } from "recharts";
 import { useTxActivity } from "@/hooks/useTxActivity";
+import type { TxEvent } from "@/hooks/useTxActivity";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
@@ -330,9 +331,9 @@ function DripAllowanceContent() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Row 1: Balance Overview + Manage Allowance */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <motion.div custom={0} variants={cardVariants} initial="hidden" animate="visible">
           <BalanceOverviewCard
             totalDeposited={totalDeposited}
@@ -348,7 +349,7 @@ function DripAllowanceContent() {
       </div>
 
       {/* Row 2: Your Savings + Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <motion.div custom={2} variants={cardVariants} initial="hidden" animate="visible">
           <SpendingPowerCard
             totalClaimable={savings.totalClaimable}
@@ -357,7 +358,7 @@ function DripAllowanceContent() {
           />
         </motion.div>
         <motion.div custom={3} variants={cardVariants} initial="hidden" animate="visible">
-          <TxActivityCard />
+          <TxActivityCard savings={savings} />
         </motion.div>
       </div>
 
@@ -1326,8 +1327,83 @@ const TX_TYPE_ICONS: Record<string, React.ElementType> = {
   "Badge Earned": Shield,
 };
 
-function TxActivityCard() {
+function TxActivityCard({ savings }: { savings: ReturnType<typeof useGamifiedSavings> }) {
   const { events, isLoading, error } = useTxActivity();
+
+  const formatTimeAgo = (timestamp: number): string => {
+    const now = Math.floor(Date.now() / 1000);
+    const diff = now - timestamp;
+    if (diff < 0) return "just now";
+    if (diff < 60) return "just now";
+    if (diff < 3600) { const m = Math.floor(diff / 60); return `${m} min${m > 1 ? "s" : ""} ago`; }
+    if (diff < 86400) { const h = Math.floor(diff / 3600); return `${h} hr${h > 1 ? "s" : ""} ago`; }
+    if (diff < 604800) { const d = Math.floor(diff / 86400); return `${d} day${d > 1 ? "s" : ""} ago`; }
+    const w = Math.floor(diff / 604800);
+    return `${w} week${w > 1 ? "s" : ""} ago`;
+  };
+
+  const derivedEvents: TxEvent[] = useMemo(() => {
+    if (events.length > 0) return [];
+
+    const items: TxEvent[] = [];
+    const now = Math.floor(Date.now() / 1000);
+
+    for (const p of savings.positions) {
+      const deposited = Number(p.totalDeposited) / 1e18;
+      const claimed = Number(p.claimed) / 1e18;
+      const startTime = Number(p.startTime);
+      if (deposited > 0) {
+        items.push({
+          type: "Deposit",
+          time: formatTimeAgo(startTime),
+          amount: `+$${deposited.toFixed(2)}`,
+          positive: true,
+          timestamp: startTime,
+        });
+      }
+      if (claimed > 0) {
+        items.push({
+          type: "Claim",
+          time: formatTimeAgo(startTime + 86400),
+          amount: `+$${claimed.toFixed(2)}`,
+          positive: true,
+          timestamp: startTime + 86400,
+        });
+      }
+    }
+
+    const streak = Number(savings.userStats.streak);
+    if (streak > 0) {
+      const lastCheckIn = Number(savings.userStats.lastCheckIn);
+      items.push({
+        type: "Check-In",
+        time: lastCheckIn > 0 ? formatTimeAgo(lastCheckIn) : "active",
+        amount: `${streak} day streak`,
+        positive: true,
+        timestamp: lastCheckIn || now,
+      });
+    }
+
+    if (savings.badges.hasTier1) items.push({ type: "Badge Earned", time: "earned", amount: "Tier 1", positive: true, timestamp: 0 });
+    if (savings.badges.hasTier2) items.push({ type: "Badge Earned", time: "earned", amount: "Tier 2", positive: true, timestamp: 0 });
+    if (savings.badges.hasTier3) items.push({ type: "Badge Earned", time: "earned", amount: "Tier 3", positive: true, timestamp: 0 });
+
+    if (savings.totalClaimable > 0n) {
+      const amt = Number(savings.totalClaimable) / 1e18;
+      items.push({
+        type: "Claim",
+        time: "available now",
+        amount: `+$${amt.toFixed(2)}`,
+        positive: true,
+        timestamp: now,
+      });
+    }
+
+    items.sort((a, b) => b.timestamp - a.timestamp);
+    return items;
+  }, [events, savings]);
+
+  const displayEvents = events.length > 0 ? events : derivedEvents;
   return (
     <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -1337,24 +1413,24 @@ function TxActivityCard() {
       <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
       <div className="space-y-0 max-h-[340px] overflow-y-auto">
-        {isLoading ? (
+        {isLoading && events.length === 0 && derivedEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 gap-2">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
             <p className="text-[11px] text-muted-foreground">Loading activity...</p>
           </div>
-        ) : error ? (
+        ) : error && derivedEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 gap-2">
             <Activity className="w-8 h-8 text-muted-foreground/30" />
             <p className="text-xs text-muted-foreground">{error}</p>
           </div>
-        ) : events.length === 0 ? (
+        ) : displayEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 gap-2">
             <Activity className="w-8 h-8 text-muted-foreground/30" />
             <p className="text-sm text-muted-foreground">No recent activity</p>
             <p className="text-[11px] text-muted-foreground/60">Your transactions will appear here</p>
           </div>
         ) : (
-          events.map((tx, i) => {
+          displayEvents.map((tx, i) => {
             const IconComp = TX_TYPE_ICONS[tx.type] || Activity;
             const colorClass = TX_TYPE_COLORS[tx.type] || "text-muted-foreground";
             return (

@@ -378,12 +378,12 @@ function FlowProgressContent() {
 
   if (savings.isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           <SkeletonCard />
           <SkeletonCard />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
           <SkeletonCard />
           <SkeletonCard />
         </div>
@@ -392,9 +392,9 @@ function FlowProgressContent() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Row 1: Streak Tracker + Next Milestone */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <StaggeredCard index={0}>
           <StreakTrackerCard
             streak={streak}
@@ -410,7 +410,7 @@ function FlowProgressContent() {
       </div>
 
       {/* Row 2: XP Multiplier + Achievement Badges (side by side on desktop) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <StaggeredCard index={2}>
           <XPMultiplierCard
             totalXP={totalXP}
