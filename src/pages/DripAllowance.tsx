@@ -273,7 +273,7 @@ export default function DripAllowancePage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader />
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full flex flex-col flex-1">
         <PageTabs />
         <DripAllowanceContent />
       </div>
@@ -331,9 +331,9 @@ function DripAllowanceContent() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col flex-1 gap-4">
       {/* Row 1: Balance Overview + Manage Allowance */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start">
+      <div className="flex flex-col sm:flex-row gap-4 flex-1">
         <motion.div className="flex-1 min-w-0" custom={0} variants={cardVariants} initial="hidden" animate="visible">
           <BalanceOverviewCard
             totalDeposited={totalDeposited}
@@ -349,7 +349,7 @@ function DripAllowanceContent() {
       </div>
 
       {/* Row 2: Your Savings + Recent Activity */}
-      <div className="flex flex-col lg:flex-row gap-4 items-start">
+      <div className="flex flex-col sm:flex-row gap-4 flex-1">
         <motion.div className="flex-1 min-w-0" custom={2} variants={cardVariants} initial="hidden" animate="visible">
           <SpendingPowerCard
             totalClaimable={savings.totalClaimable}
@@ -362,8 +362,8 @@ function DripAllowanceContent() {
         </motion.div>
       </div>
 
-      {/* Row 3: Savings Projection (full width) */}
-      <motion.div custom={4} variants={cardVariants} initial="hidden" animate="visible">
+      {/* Row 3: Savings Projection (full width, fills remaining) */}
+      <motion.div custom={4} variants={cardVariants} initial="hidden" animate="visible" className="flex-1 min-h-[200px]">
         <SavingsProjectionCard positions={activePositions} />
       </motion.div>
     </div>
@@ -389,7 +389,7 @@ function BalanceOverviewCard({
   yearlyRate: bigint;
 }) {
   return (
-    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
+    <div className="panel h-full flex flex-col group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
       <CardHeader icon={Shield} title="Balance Overview" subtitle="Your total savings at a glance" />
@@ -475,7 +475,7 @@ function AllowanceStreamCard({
 }) {
   const [subTab, setSubTab] = useState<AllowanceSubTab>("create");
   return (
-    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
+    <div className="panel h-full flex flex-col group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
       <CardHeader icon={Zap} title="Manage Allowance" subtitle="Create new savings or top up existing ones" />
@@ -1101,7 +1101,7 @@ function SpendingPowerCard({
   };
 
   return (
-    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
+    <div className="panel h-full flex flex-col group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
       <CardHeader icon={PiggyBank} title="Your Savings" subtitle="Manage positions and claim released funds" />
@@ -1405,7 +1405,7 @@ function TxActivityCard({ savings }: { savings: ReturnType<typeof useGamifiedSav
 
   const displayEvents = events.length > 0 ? events : derivedEvents;
   return (
-    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
+    <div className="panel h-full flex flex-col group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
       <CardHeader icon={Activity} title="Recent Activity" subtitle="On-chain transaction history" />
@@ -1577,7 +1577,7 @@ function SavingsProjectionCard({ positions }: { positions: (Position & { id: num
   }, [positions]);
 
   return (
-    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
+    <div className="panel h-full flex flex-col group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
       <CardHeader icon={BarChart3} title="Savings Projection" subtitle="How your savings release over time" />
