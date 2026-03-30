@@ -220,7 +220,7 @@ const CUSTOM_ERROR_MESSAGES: Record<string, string> = {
   PositionNotActive: "This savings position is no longer active.",
   NothingToClaim: "Nothing available to claim yet.",
   ZeroAmount: "Amount cannot be zero.",
-  StreakNotRecoverable: "Streak is not recoverable. Recovery is only available if you missed exactly 1 day.",
+  StreakNotRecoverable: "Streak is not recoverable. Recovery is only available if you missed 1 or 2 days. After 3+ missed days, your streak resets to 0.",
   IncorrectRecoveryFee: "Incorrect recovery fee. Please send exactly 0.01 ETH.",
 };
 

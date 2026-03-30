@@ -1396,7 +1396,9 @@ function TxActivityCard({ savings }: { savings: ReturnType<typeof useGamifiedSav
     return items;
   }, [events, savings]);
 
-  const displayEvents = events.length > 0 ? events : derivedEvents;
+  const allEvents = events.length > 0 ? events : derivedEvents;
+  const displayEvents = allEvents.slice(0, 5);
+  const hasMore = allEvents.length > 5;
   return (
     <div className="panel h-full flex flex-col group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -1423,7 +1425,8 @@ function TxActivityCard({ savings }: { savings: ReturnType<typeof useGamifiedSav
             <p className="text-[11px] text-muted-foreground/60">Your transactions will appear here</p>
           </div>
         ) : (
-          displayEvents.map((tx, i) => {
+          <>
+            {displayEvents.map((tx, i) => {
             const IconComp = TX_TYPE_ICONS[tx.type] || Activity;
             const colorClass = TX_TYPE_COLORS[tx.type] || "text-muted-foreground";
             return (
@@ -1448,7 +1451,13 @@ function TxActivityCard({ savings }: { savings: ReturnType<typeof useGamifiedSav
                 </span>
               </motion.div>
             );
-          })
+            })}
+            {hasMore && (
+              <p className="text-[10px] text-muted-foreground/60 text-center pt-3 pb-1">
+                Showing 5 most recent
+              </p>
+            )}
+          </>
         )}
       </div>
     </div>

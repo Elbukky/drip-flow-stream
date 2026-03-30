@@ -38,6 +38,29 @@ const docs = [
       { label: "Gas Optimization", id: "gas" },
     ]
   },
+  {
+    title: "DRIP ALLOWANCE",
+    items: [
+      { label: "What is Drip Allowance?", id: "allowance-what" },
+      { label: "Fixed Daily Mode", id: "allowance-fixed" },
+      { label: "Percentage Mode", id: "allowance-percentage" },
+      { label: "Unlock Frequencies", id: "allowance-frequency" },
+      { label: "Top Up", id: "allowance-topup" },
+      { label: "Claim Funds", id: "allowance-claim" },
+      { label: "Emergency Withdrawal", id: "allowance-emergency" },
+    ]
+  },
+  {
+    title: "FLOW PROGRESS",
+    items: [
+      { label: "Gamification Overview", id: "gamification-overview" },
+      { label: "Daily Check-In", id: "gamification-checkin" },
+      { label: "Streaks & Recovery", id: "gamification-streaks" },
+      { label: "XP & Multipliers", id: "gamification-xp" },
+      { label: "NFT Badges", id: "gamification-badges" },
+      { label: "Boosting Explained", id: "gamification-boosting" },
+    ]
+  },
 ];
 
 const sections = [
@@ -228,6 +251,284 @@ All state-changing functions use O(1) writes, meaning gas cost stays constant re
 • Stream duration
 • Total number of streams
 • Historical activity`
+  },
+  {
+    id: "allowance-what",
+    title: "WHAT IS DRIP ALLOWANCE?",
+    content: `Drip Allowance is a gamified self-custody savings vault built on-chain. Instead of giving yourself access to all your funds at once, you lock USDC into a savings position and it drips back to you over time on a schedule you choose.
+
+Think of it as a personal allowance system: you deposit a lump sum, configure how much unlocks per period, and your funds release gradually. You stay in full control -- you can claim released funds anytime, top up existing positions, or use emergency withdrawal if needed.
+
+There are two savings modes: Fixed Daily (set an exact amount per period) and Percentage (set a percentage of your balance per period). Both support four unlock frequencies: Daily, Weekly, Monthly, and Yearly.`
+  },
+  {
+    id: "allowance-fixed",
+    title: "FIXED DAILY MODE",
+    content: `In Fixed Daily mode, you choose an exact amount of USDC to release per unlock period.
+
+HOW IT WORKS:
+- You deposit a total amount (e.g. 100 USDC)
+- You set a per-period release amount (e.g. 5 USDC)
+- The contract calculates the duration automatically (100 / 5 = 20 periods)
+- Each period, exactly 5 USDC becomes claimable
+- On the last period, any remaining dust (from rounding) is included
+
+EXAMPLE:
+Deposit 100 USDC with 3 USDC per day release.
+- Duration: 33 days (100 / 3 = 33 full periods)
+- Day 1-33: 3 USDC unlocks each day
+- Day 33 (last day): 3 USDC + 1 USDC remainder = 4 USDC unlocks
+- Total: 100 USDC fully returned
+
+When you top up a Fixed Daily position, the contract keeps your same per-period rate and extends the duration proportionally.`
+  },
+  {
+    id: "allowance-percentage",
+    title: "PERCENTAGE MODE",
+    content: `In Percentage mode, you set a percentage of your total deposit to release per unlock period.
+
+HOW IT WORKS:
+- You deposit a total amount (e.g. 100 USDC)
+- You set a duration in periods (e.g. 10 periods)
+- The contract calculates the percentage automatically (10000 / 10 = 1000 bps = 10% per period)
+- Each period, 10% of the total deposit unlocks
+- On the last period, all remaining funds (including any rounding dust) are released
+
+EXAMPLE:
+Deposit 100 USDC over 10 daily periods.
+- Percentage: 10% per day
+- Day 1: 10 USDC unlocks
+- Day 2: another 10 USDC unlocks (20 total)
+- Day 10 (last day): all remaining funds released
+- Total: 100 USDC fully returned
+
+Percentage mode is useful when you want your unlock rate to scale with your deposit size.`
+  },
+  {
+    id: "allowance-frequency",
+    title: "UNLOCK FREQUENCIES",
+    content: `Every savings position has an unlock frequency that determines how often tokens become available:
+
+DAILY - Tokens unlock once every 24 hours. Best for everyday spending allowances.
+
+WEEKLY - Tokens unlock once every 7 days. Good for weekly budgeting.
+
+MONTHLY - Tokens unlock once every 30 days. Ideal for monthly expense planning.
+
+YEARLY - Tokens unlock once every 365 days. Best for long-term savings goals.
+
+The frequency applies to both Fixed Daily and Percentage modes. When you see "per period" in the UI, it means per frequency period (per day, per week, per month, or per year depending on your setting).
+
+You choose the frequency when creating a position. It cannot be changed after creation, but you can create multiple positions with different frequencies.`
+  },
+  {
+    id: "allowance-topup",
+    title: "TOP UP",
+    content: `You can add more funds to any active savings position without creating a new one.
+
+FIXED DAILY TOP-UP:
+When you top up a Fixed Daily position, the per-period release amount stays the same and the duration extends. For example, if you have 5 USDC/day with 10 days remaining and add 50 USDC, you now have 20 days remaining at the same 5 USDC/day rate.
+
+PERCENTAGE TOP-UP - TWO STRATEGIES:
+When topping up a Percentage position, you choose one of two strategies:
+
+1. EXTEND DURATION (default)
+   - Keeps the same percentage rate per period
+   - Adds more periods proportionally
+   - Example: 10% rate with 5 periods left, add equal funds = 10 periods at same 10% rate
+
+2. INCREASE RATE
+   - Keeps the same number of remaining periods
+   - Recalculates the percentage to distribute new total evenly
+   - Example: 5 periods left, add more funds = same 5 periods but higher release per period
+   - Accounting resets cleanly so drip is smooth from day 1 after top-up
+
+The UI shows a preview of how your top-up will affect the position before you confirm.`
+  },
+  {
+    id: "allowance-claim",
+    title: "CLAIM FUNDS",
+    content: `Once funds unlock according to your schedule, you can claim them at any time.
+
+- Click "Claim" on any position to withdraw all currently available funds
+- Use "Claim All" to batch-claim across all your active positions in a single transaction
+- Claiming is free (you only pay gas)
+- You can claim as frequently or infrequently as you want -- unclaimed funds accumulate
+- When a position is fully claimed, it is automatically marked as inactive
+
+The Drip Allowance page shows your total available balance across all positions, the next unlock timer for each position, and how much is still secured (locked).`
+  },
+  {
+    id: "allowance-emergency",
+    title: "EMERGENCY WITHDRAWAL",
+    content: `If you need your locked funds immediately, you can use Emergency Withdrawal on any active position.
+
+WHAT HAPPENS:
+- A 2% fee is deducted from your remaining balance
+- The fee goes to the protocol treasury
+- You receive 98% of the remaining locked funds immediately
+- The position is permanently closed
+- Your check-in streak resets to 0
+
+IMPORTANT:
+- Your XP multiplier is NOT permanently blocked -- once you rebuild your streak, your multiplier returns
+- NFT badges you already earned are permanent and will not be taken away
+- Emergency withdrawal cannot be undone
+
+This feature exists as a safety net. The 2% fee and streak reset are designed to discourage casual use while still giving you access to your own funds when you truly need them.`
+  },
+  {
+    id: "gamification-overview",
+    title: "GAMIFICATION OVERVIEW",
+    content: `DripFlow's Flow Progress system rewards consistency through a gamification layer built on top of the savings vault.
+
+THE CORE LOOP:
+1. Lock USDC into a savings position on the Drip Allowance page
+2. Check in daily on the Flow Progress page to earn XP
+3. Build your streak to unlock multipliers that boost XP earned per check-in
+4. Earn soulbound NFT badges at streak milestones (permanent collectibles)
+
+REQUIREMENTS TO PARTICIPATE:
+- At least one active savings position
+- At least 1 USDC worth of locked (not yet released) funds across all positions
+
+The gamification system is entirely optional. Your savings positions work independently whether or not you participate in check-ins, streaks, or badges.`
+  },
+  {
+    id: "gamification-checkin",
+    title: "DAILY CHECK-IN",
+    content: `Check in once per day to earn XP and maintain your streak.
+
+HOW IT WORKS:
+- Visit the Flow Progress page and click "Check In"
+- One check-in per calendar day (resets at 00:00 UTC)
+- Each check-in earns base XP, multiplied by your current multiplier
+- The calendar heatmap shows your last 30 days of check-in history
+
+REQUIREMENTS:
+- At least one active savings position
+- At least 1 USDC of locked funds across all positions
+- If your locked balance drops below 1 USDC (because funds unlocked), you cannot check in until you deposit more
+
+Check-ins are on-chain transactions, so they cost a small amount of gas. The UI shows a countdown timer to the next available check-in window.`
+  },
+  {
+    id: "gamification-streaks",
+    title: "STREAKS & RECOVERY",
+    content: `Your streak tracks how many consecutive days you have checked in.
+
+BUILDING A STREAK:
+- Check in on consecutive days to increase your streak by 1 each day
+- Your first ever check-in starts your streak at 1
+
+MISSING DAYS:
+- Miss 1 or 2 days: Your streak can be recovered by paying a 0.01 ETH recovery fee, then checking in
+- Miss 3 or more days: Your streak hard resets to 0 and CANNOT be recovered. You must start fresh
+
+RECOVERY PROCESS:
+1. If you missed 1 or 2 days, a yellow "Recover Streak" button appears
+2. Click it and pay 0.01 ETH (goes to protocol treasury)
+3. After recovery, check in as normal -- your streak continues where it left off
+4. Recovery must be done BEFORE your check-in on the recovery day
+
+STREAK MILESTONES:
+- 7 days: Unlocks 2x XP multiplier
+- 15 days: Earns Silver NFT badge + 3x XP multiplier
+- 30 days: Earns Gold NFT badge + 4x XP multiplier
+
+EMERGENCY WITHDRAWAL IMPACT:
+Using emergency withdrawal on any position resets your streak to 0. However, your multiplier is NOT permanently blocked -- rebuild your streak and it returns.`
+  },
+  {
+    id: "gamification-xp",
+    title: "XP & MULTIPLIERS",
+    content: `XP (experience points) is your lifetime score. It can only go up and is never lost.
+
+BASE XP:
+Each daily check-in earns 1 base XP, which is then multiplied by your current multiplier.
+
+MULTIPLIER TIERS:
+Your multiplier depends on your current streak AND having enough locked funds:
+
+- 1x (base): Default. Any streak under 7 days
+- 2x: Streak of 7+ days
+- 3x: Streak of 15+ days
+- 4x: Streak of 30+ days
+
+MULTIPLIER REQUIREMENTS (all must be met):
+1. At least one active savings position
+2. At least 10 USDC of locked funds across all positions
+3. Streak at the required level
+
+If your locked balance drops below 10 USDC, your multiplier falls back to 1x regardless of your streak. The streak itself is preserved -- only the multiplier is affected.
+
+EXAMPLE:
+- Day 1-6: Check in daily, earn 1 XP each (1x multiplier)
+- Day 7: Streak hits 7, multiplier becomes 2x, earn 2 XP
+- Day 8-14: Earn 2 XP per check-in
+- Day 15: Multiplier becomes 3x, earn 3 XP
+- Day 30: Multiplier becomes 4x, earn 4 XP per check-in going forward`
+  },
+  {
+    id: "gamification-badges",
+    title: "NFT BADGES",
+    content: `NFT badges are soulbound (non-transferable) ERC-721 tokens minted as you hit milestones.
+
+BADGE TIERS:
+
+BRONZE (Tier 1):
+- Requirement: 1 check-in with at least 1 XP
+- Minted automatically on your first successful check-in
+
+SILVER (Tier 2):
+- Requirement: 15-day streak
+- Minted automatically when your streak reaches 15
+
+GOLD (Tier 3):
+- Requirement: 30-day streak
+- Minted automatically when your streak reaches 30
+
+IMPORTANT PROPERTIES:
+- Badges are PERMANENT. Once minted, they stay in your wallet forever
+- Badges are SOULBOUND (ERC-5192). They cannot be transferred, sold, or burned
+- Badges persist even if your streak resets or you use emergency withdrawal
+- Each badge has on-chain SVG art generated by the NFTDescriptor contract
+- Badge metadata includes your streak, XP, and total saved at time of viewing
+
+Badges are purely cosmetic achievements. They do not affect your multiplier or XP earnings -- those come from your current streak and locked balance.`
+  },
+  {
+    id: "gamification-boosting",
+    title: "BOOSTING EXPLAINED",
+    content: `Boosting is how you maximize your XP earnings. Here is the complete breakdown of what affects your XP multiplier and how to optimize it.
+
+THE BOOST FORMULA:
+XP per check-in = 1 (base) x Multiplier
+
+WHAT CONTROLS YOUR MULTIPLIER:
+Three conditions must ALL be true for any multiplier above 1x:
+
+1. ACTIVE POSITION: You must have at least one active (not fully claimed or emergency-withdrawn) savings position
+
+2. LOCKED BALANCE: You must have at least 10 USDC worth of funds still locked (not yet released) across all your positions. This means as your positions drip and funds unlock, your locked balance decreases. If it drops below 10 USDC, your multiplier drops to 1x until you deposit more
+
+3. STREAK LEVEL: Your consecutive check-in streak determines the tier:
+   - 0-6 days: 1x (no boost)
+   - 7-13 days: 2x boost
+   - 14-29 days: 3x boost  (note: this is streak >= 15 on-chain, but effectively from day 15 onward)
+   - 30+ days: 4x boost (maximum)
+
+HOW TO MAINTAIN MAX BOOST:
+- Check in EVERY day without missing more than 2 days
+- Keep at least 10 USDC locked at all times (top up before positions fully drain)
+- If you miss 1-2 days, use streak recovery (0.01 ETH) immediately
+- Avoid emergency withdrawal unless absolutely necessary (resets streak to 0)
+
+WHAT HAPPENS IF YOU LOSE YOUR BOOST:
+- Streak reset: Your multiplier drops but can be rebuilt by checking in consistently again
+- Emergency withdrawal: Streak goes to 0, but multiplier is NOT permanently blocked
+- Balance drops below 10 USDC: Multiplier drops to 1x until you deposit more. Streak is preserved
+- All XP earned is permanent and never decreases`
   },
 ];
 
