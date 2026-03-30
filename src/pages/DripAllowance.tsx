@@ -333,7 +333,7 @@ function DripAllowanceContent() {
   return (
     <div className="flex flex-col flex-1 gap-4">
       {/* Row 1: Balance Overview + Manage Allowance */}
-      <div className="flex flex-col sm:flex-row gap-4 flex-1">
+      <div className="flex flex-col sm:flex-row gap-4">
         <motion.div className="flex-1 min-w-0" custom={0} variants={cardVariants} initial="hidden" animate="visible">
           <BalanceOverviewCard
             totalDeposited={totalDeposited}
@@ -349,7 +349,7 @@ function DripAllowanceContent() {
       </div>
 
       {/* Row 2: Your Savings + Recent Activity */}
-      <div className="flex flex-col sm:flex-row gap-4 flex-1">
+      <div className="flex flex-col sm:flex-row gap-4">
         <motion.div className="flex-1 min-w-0" custom={2} variants={cardVariants} initial="hidden" animate="visible">
           <SpendingPowerCard
             totalClaimable={savings.totalClaimable}
@@ -362,8 +362,8 @@ function DripAllowanceContent() {
         </motion.div>
       </div>
 
-      {/* Row 3: Savings Projection (full width, fills remaining) */}
-      <motion.div custom={4} variants={cardVariants} initial="hidden" animate="visible" className="flex-1 min-h-[200px]">
+      {/* Row 3: Savings Projection (expands to fill remaining space) */}
+      <motion.div custom={4} variants={cardVariants} initial="hidden" animate="visible" className="flex-1 min-h-[260px]">
         <SavingsProjectionCard positions={activePositions} />
       </motion.div>
     </div>
@@ -1123,7 +1123,7 @@ function SpendingPowerCard({
       {positions.length > 0 ? (
         <div className="space-y-3">
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">Active Positions</p>
-          <div className="space-y-2.5">
+          <div className="space-y-2.5 max-h-[340px] overflow-y-auto scrollbar-hide">
             {positions.map((p, idx) => {
               const claimable = computePositionClaimable(p);
               const secured = p.totalDeposited - p.claimed - claimable;

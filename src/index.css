@@ -63,6 +63,13 @@
   .panel {
     @apply bg-card border border-border p-6 rounded-sm;
   }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
   .stream-value {
     @apply font-mono-display text-2xl text-primary;
     font-variant-numeric: tabular-nums;

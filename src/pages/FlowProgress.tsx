@@ -394,7 +394,7 @@ function FlowProgressContent() {
   return (
     <div className="flex flex-col flex-1 gap-4">
       {/* Row 1: Streak Tracker + Next Milestone */}
-      <div className="flex flex-col sm:flex-row gap-4 flex-1">
+      <div className="flex flex-col sm:flex-row gap-4">
         <StaggeredCard index={0} className="flex-1 min-w-0">
           <StreakTrackerCard
             streak={streak}
@@ -409,8 +409,8 @@ function FlowProgressContent() {
         </StaggeredCard>
       </div>
 
-      {/* Row 2: XP Multiplier + Achievement Badges (fills remaining) */}
-      <div className="flex flex-col sm:flex-row gap-4 flex-1">
+      {/* Row 2: XP Multiplier + Achievement Badges (expands to fill remaining) */}
+      <div className="flex flex-col sm:flex-row gap-4 flex-1 min-h-[300px]">
         <StaggeredCard index={2} className="flex-1 min-w-0">
           <XPMultiplierCard
             totalXP={totalXP}
