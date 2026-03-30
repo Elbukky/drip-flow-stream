@@ -273,9 +273,11 @@ export default function DripAllowancePage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader />
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full flex flex-col flex-1">
         <PageTabs />
-        <DripAllowanceContent />
+        <div className="flex flex-col flex-1">
+          <DripAllowanceContent />
+        </div>
       </div>
       <AppFooter />
     </div>
@@ -331,7 +333,7 @@ function DripAllowanceContent() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col flex-1 gap-4">
       {/* Row 1: Balance Overview + Manage Allowance */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <motion.div custom={0} variants={cardVariants} initial="hidden" animate="visible">
@@ -362,8 +364,8 @@ function DripAllowanceContent() {
         </motion.div>
       </div>
 
-      {/* Row 3: Savings Projection (full width) */}
-      <motion.div custom={4} variants={cardVariants} initial="hidden" animate="visible">
+      {/* Row 3: Savings Projection (full width, expands to fill) */}
+      <motion.div custom={4} variants={cardVariants} initial="hidden" animate="visible" className="flex-1 min-h-[300px]">
         <SavingsProjectionCard positions={activePositions} />
       </motion.div>
     </div>
@@ -1577,7 +1579,7 @@ function SavingsProjectionCard({ positions }: { positions: (Position & { id: num
   }, [positions]);
 
   return (
-    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5 h-full flex flex-col">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
       <CardHeader icon={BarChart3} title="Savings Projection" subtitle="How your savings release over time" />
@@ -1585,7 +1587,7 @@ function SavingsProjectionCard({ positions }: { positions: (Position & { id: num
       <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
       {positions.length === 0 ? (
-        <div className="h-[260px] border-2 border-dashed border-border/50 rounded-xl flex flex-col items-center justify-center gap-3">
+        <div className="flex-1 border-2 border-dashed border-border/50 rounded-xl flex flex-col items-center justify-center gap-3">
           <BarChart3 className="w-10 h-10 text-muted-foreground/25" />
           <p className="text-sm text-muted-foreground">Create a savings position to see your projection</p>
           <p className="text-[11px] text-muted-foreground/50">Your release timeline will be visualized here</p>
@@ -1593,7 +1595,7 @@ function SavingsProjectionCard({ positions }: { positions: (Position & { id: num
       ) : (
         <>
           <motion.div
-            className="h-[260px] w-full"
+            className="flex-1 min-h-[260px] w-full"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}

@@ -350,9 +350,11 @@ export default function FlowProgressPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader />
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full flex flex-col flex-1">
         <PageTabs />
-        <FlowProgressContent />
+        <div className="flex flex-col flex-1">
+          <FlowProgressContent />
+        </div>
       </div>
       <AppFooter />
     </div>
@@ -392,7 +394,7 @@ function FlowProgressContent() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col flex-1 gap-4">
       {/* Row 1: Streak Tracker + Next Milestone */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <StaggeredCard index={0}>
@@ -409,9 +411,9 @@ function FlowProgressContent() {
         </StaggeredCard>
       </div>
 
-      {/* Row 2: XP Multiplier + Achievement Badges (side by side on desktop) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <StaggeredCard index={2}>
+      {/* Row 2: XP Multiplier + Achievement Badges (expands to fill) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch flex-1">
+        <StaggeredCard index={2} className="h-full">
           <XPMultiplierCard
             totalXP={totalXP}
             multiplier={multiplier}
@@ -421,7 +423,7 @@ function FlowProgressContent() {
             hasActivePosition={activePositionCount > 0}
           />
         </StaggeredCard>
-        <StaggeredCard index={3}>
+        <StaggeredCard index={3} className="h-full">
           <BadgesEarnedCard
             streak={streak}
             totalXP={totalXP}
@@ -1058,7 +1060,7 @@ function XPMultiplierCard({
   ];
 
   return (
-    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5 h-full flex flex-col">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
       <CardHeader
@@ -1300,7 +1302,7 @@ function BadgesEarnedCard({
   const earnedCount = badgeDefs.filter((b) => b.earned).length;
 
   return (
-    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5 h-full flex flex-col">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
       <div className="flex items-start justify-between">
