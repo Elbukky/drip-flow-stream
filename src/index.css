@@ -40,6 +40,9 @@
 }
 
 @layer base {
+  html, body, #root {
+    @apply min-h-screen;
+  }
   * {
     @apply border-border;
   }
