@@ -74,6 +74,12 @@
     @apply bg-secondary hover:bg-muted text-foreground font-bold py-3 px-6 transition-colors duration-150 uppercase text-xs tracking-widest rounded-none border border-border;
   }
 
+  .dashboard-grid {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-height: 100vh;
+  }
+
   @keyframes border-pulse {
     0% { border-color: hsl(24 100% 50%); }
     100% { border-color: hsl(0 0% 18%); }
