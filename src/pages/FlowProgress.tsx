@@ -378,60 +378,49 @@ function FlowProgressContent() {
 
   if (savings.isLoading) {
     return (
-      <div className="flex flex-col flex-1 gap-4">
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1 min-w-0"><SkeletonCard /></div>
-          <div className="flex-1 min-w-0"><SkeletonCard /></div>
-        </div>
-        <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-[300px]">
-          <div className="flex-1 min-w-0"><SkeletonCard /></div>
-          <div className="flex-1 min-w-0"><SkeletonCard /></div>
-        </div>
+      <div className="masonry">
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col flex-1 gap-4">
-      {/* Row 1: Streak Tracker + Next Milestone */}
-      <div className="flex flex-col lg:flex-row gap-4">
-        <StaggeredCard index={0} className="flex-1 min-w-0">
-          <StreakTrackerCard
-            streak={streak}
-            lastCheckIn={lastCheckIn}
-            savings={savings}
-            totalXP={totalXP}
-            address={address}
-          />
-        </StaggeredCard>
-        <StaggeredCard index={1} className="flex-1 min-w-0">
-          <NextMilestoneCard milestone={milestone} streak={streak} />
-        </StaggeredCard>
-      </div>
-
-      {/* Row 2: XP Multiplier + Achievement Badges (expands to fill remaining) */}
-      <div className="flex flex-col lg:flex-row gap-4 flex-1 min-h-[300px]">
-        <StaggeredCard index={2} className="flex-1 min-w-0">
-          <XPMultiplierCard
-            totalXP={totalXP}
-            multiplier={multiplier}
-            streak={streak}
-            usedEmergency={usedEmergency}
-            totalLocked={savings.totalLocked}
-            hasActivePosition={activePositionCount > 0}
-          />
-        </StaggeredCard>
-        <StaggeredCard index={3} className="flex-1 min-w-0">
-          <BadgesEarnedCard
-            streak={streak}
-            totalXP={totalXP}
-            multiplier={multiplier}
-            usedEmergency={usedEmergency}
-            positions={savings.positions}
-            badges={savings.badges}
-          />
-        </StaggeredCard>
-      </div>
+    <div className="masonry">
+      <StaggeredCard index={0}>
+        <StreakTrackerCard
+          streak={streak}
+          lastCheckIn={lastCheckIn}
+          savings={savings}
+          totalXP={totalXP}
+          address={address}
+        />
+      </StaggeredCard>
+      <StaggeredCard index={1}>
+        <NextMilestoneCard milestone={milestone} streak={streak} />
+      </StaggeredCard>
+      <StaggeredCard index={2}>
+        <XPMultiplierCard
+          totalXP={totalXP}
+          multiplier={multiplier}
+          streak={streak}
+          usedEmergency={usedEmergency}
+          totalLocked={savings.totalLocked}
+          hasActivePosition={activePositionCount > 0}
+        />
+      </StaggeredCard>
+      <StaggeredCard index={3}>
+        <BadgesEarnedCard
+          streak={streak}
+          totalXP={totalXP}
+          multiplier={multiplier}
+          usedEmergency={usedEmergency}
+          positions={savings.positions}
+          badges={savings.badges}
+        />
+      </StaggeredCard>
     </div>
   );
 }

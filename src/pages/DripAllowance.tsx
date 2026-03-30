@@ -331,10 +331,9 @@ function DripAllowanceContent() {
   }
 
   return (
-    <div className="flex flex-col flex-1 gap-4">
-      {/* Row 1: Balance Overview + Manage Allowance */}
-      <div className="flex flex-col lg:flex-row gap-4">
-        <motion.div className="flex-1 min-w-0" custom={0} variants={cardVariants} initial="hidden" animate="visible">
+    <div className="flex-1">
+      <div className="masonry">
+        <motion.div custom={0} variants={cardVariants} initial="hidden" animate="visible">
           <BalanceOverviewCard
             totalDeposited={totalDeposited}
             available={savings.totalClaimable}
@@ -343,27 +342,21 @@ function DripAllowanceContent() {
             yearlyRate={yearlyRate}
           />
         </motion.div>
-        <motion.div className="flex-1 min-w-0" custom={1} variants={cardVariants} initial="hidden" animate="visible">
+        <motion.div custom={1} variants={cardVariants} initial="hidden" animate="visible">
           <AllowanceStreamCard positions={activePositions} savings={savings} />
         </motion.div>
-      </div>
-
-      {/* Row 2: Your Savings + Recent Activity */}
-      <div className="flex flex-col lg:flex-row gap-4">
-        <motion.div className="flex-1 min-w-0" custom={2} variants={cardVariants} initial="hidden" animate="visible">
+        <motion.div custom={2} variants={cardVariants} initial="hidden" animate="visible">
           <SpendingPowerCard
             totalClaimable={savings.totalClaimable}
             positions={activePositions}
             savings={savings}
           />
         </motion.div>
-        <motion.div className="flex-1 min-w-0" custom={3} variants={cardVariants} initial="hidden" animate="visible">
+        <motion.div custom={3} variants={cardVariants} initial="hidden" animate="visible">
           <TxActivityCard savings={savings} />
         </motion.div>
       </div>
-
-      {/* Row 3: Savings Projection (expands to fill remaining space) */}
-      <motion.div custom={4} variants={cardVariants} initial="hidden" animate="visible" className="flex-1 min-h-[260px]">
+      <motion.div custom={4} variants={cardVariants} initial="hidden" animate="visible" className="mt-4">
         <SavingsProjectionCard positions={activePositions} />
       </motion.div>
     </div>
