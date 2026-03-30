@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAccount } from "wagmi";
 import { useNavigate } from "react-router-dom";
 import {
@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Copy, DollarSign, Clock, Pause, Play, XCircle } from "lucide-react";
+import { Loader2, Copy, DollarSign, Clock, Pause, Play, XCircle, Trash2 } from "lucide-react";
 import {
   USDC_LOGO,
   USDC_SYMBOL,
@@ -37,6 +37,28 @@ import { USDCFlow } from "@/components/USDCFlow";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
 
 const PAGE_SIZE = 20;
+
+// Helper hook to persist hidden stream IDs in localStorage
+function useHiddenStreams(storageKey: string) {
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) return new Set(JSON.parse(stored));
+    } catch { /* ignore */ }
+    return new Set();
+  });
+
+  const hideStream = useCallback((id: string) => {
+    setHiddenIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      localStorage.setItem(storageKey, JSON.stringify([...next]));
+      return next;
+    });
+  }, [storageKey]);
+
+  return { hiddenIds, hideStream };
+}
 
 export default function MyStreamsPage() {
   const { isConnected } = useAccount();
@@ -65,18 +87,18 @@ export default function MyStreamsPage() {
     <div className="min-h-screen bg-background flex flex-col">
       <AppHeader />
       <div className="flex-1 max-w-[1400px] mx-auto px-6 py-8 w-full">
-        <Tabs defaultValue="incoming" className="w-full">
+        <Tabs defaultValue="created" className="w-full">
           <TabsList className="mb-6">
-            <TabsTrigger value="incoming">Incoming (Receiving)</TabsTrigger>
             <TabsTrigger value="created">Created (Sending)</TabsTrigger>
+            <TabsTrigger value="incoming">Incoming (Receiving)</TabsTrigger>
           </TabsList>
-          
-          <TabsContent value="incoming">
-            <BeneficiaryStreams />
-          </TabsContent>
           
           <TabsContent value="created">
             <CreatorStreams />
+          </TabsContent>
+          
+          <TabsContent value="incoming">
+            <BeneficiaryStreams />
           </TabsContent>
         </Tabs>
       </div>
@@ -89,6 +111,7 @@ function BeneficiaryStreams() {
   const { address } = useAccount();
   const [page, setPage] = useState(0);
   const navigate = useNavigate();
+  const { hiddenIds, hideStream } = useHiddenStreams("hidden-streams-incoming");
 
   const { data: summary } = useBeneficiarySummary(address);
   const { data: breakdown } = useBeneficiaryTokenBreakdown(address);
@@ -175,6 +198,8 @@ function BeneficiaryStreams() {
         isClaiming={isClaiming}
         streamsResult={streamsResult}
         streamsLoading={streamsLoading}
+        hiddenIds={hiddenIds}
+        onHide={hideStream}
       />
     </div>
   );
@@ -188,6 +213,8 @@ function StreamList({
   isClaiming,
   streamsResult,
   streamsLoading,
+  hiddenIds,
+  onHide,
 }: {
   address: `0x${string}`;
   page: number;
@@ -196,6 +223,8 @@ function StreamList({
   isClaiming: boolean;
   streamsResult: readonly [bigint[], bigint] | undefined;
   streamsLoading: boolean;
+  hiddenIds: Set<string>;
+  onHide: (id: string) => void;
 }) {
   const navigate = useNavigate();
 
@@ -222,16 +251,30 @@ function StreamList({
   const [streamIds, total] = streamsResult;
   // Reverse so newest streams appear first
   const sortedIds = [...streamIds].reverse();
+  const visibleIds = sortedIds.filter(id => !hiddenIds.has(id.toString()));
+
+  if (visibleIds.length === 0) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">All streams are hidden</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">
-      {sortedIds.map((streamId: bigint) => (
+      {visibleIds.map((streamId: bigint) => (
         <StreamCard
           key={streamId.toString()}
           streamId={streamId}
           onClaim={onClaim}
           isClaiming={isClaiming}
           onClick={() => navigate(getStreamUrl(streamId.toString()))}
+          onHide={onHide}
         />
       ))}
 
@@ -251,11 +294,13 @@ function StreamCard({
   onClaim,
   isClaiming,
   onClick,
+  onHide,
 }: {
   streamId: bigint;
   onClaim: (streamId: bigint) => void;
   isClaiming: boolean;
   onClick: () => void;
+  onHide: (id: string) => void;
 }) {
   const { stream, claimable, progress, timeRemaining, isLoading, refetch } = useStream(streamId);
   const [liveClaimable, setLiveClaimable] = useState<bigint | undefined>();
@@ -307,6 +352,7 @@ function StreamCard({
   const displayStatus = isFinished && status === 0 ? 2 : status;
   const progressPercent = progress ? Number(progress) / 100 : 0;
   const perUnlock = getPerUnlockAmount(stream.totalAmount, stream.duration, stream.interval);
+  const canDismiss = displayStatus === 2 || displayStatus === 3;
 
   return (
     <Card className="cursor-pointer hover:border-primary/50 transition-colors">
@@ -332,6 +378,19 @@ function StreamCard({
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
+            {canDismiss && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onHide(streamId.toString());
+                  toast.success("Stream hidden from list");
+                }}
+                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg p-1.5 transition-colors"
+                title="Dismiss stream"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
             <img src={USDC_LOGO} alt="USDC" className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-contain" />
             <span className="font-mono-display text-base sm:text-lg text-foreground">
               {formatUSDC(stream.totalAmount)}
@@ -426,6 +485,7 @@ function CreatorStreams() {
   const { address } = useAccount();
   const [page, setPage] = useState(0);
   const navigate = useNavigate();
+  const { hiddenIds, hideStream } = useHiddenStreams("hidden-streams-created");
 
   const { data: streamsResult, isLoading: streamsLoading } = useCreatorStreams(address!, page * PAGE_SIZE, PAGE_SIZE);
   const { pauseStream, isPending: isPausing, isConfirmed: pauseConfirmed } = usePauseStream();
@@ -461,10 +521,23 @@ function CreatorStreams() {
   const [streamIds, total] = streamsResult;
   // Reverse so newest streams appear first
   const sortedIds = [...streamIds].reverse();
+  const visibleIds = sortedIds.filter(id => !hiddenIds.has(id.toString()));
+
+  if (visibleIds.length === 0) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">All streams are hidden</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">
-      {sortedIds.map((streamId: bigint) => (
+      {visibleIds.map((streamId: bigint) => (
         <CreatorStreamCard
           key={streamId.toString()}
           streamId={streamId}
@@ -475,6 +548,7 @@ function CreatorStreams() {
           isResuming={isResuming}
           isCancelling={isCancelling}
           onClick={() => navigate(getStreamUrl(streamId.toString()))}
+          onHide={hideStream}
         />
       ))}
 
@@ -498,6 +572,7 @@ function CreatorStreamCard({
   isResuming,
   isCancelling,
   onClick,
+  onHide,
 }: {
   streamId: bigint;
   onPause: (id: bigint) => void;
@@ -507,6 +582,7 @@ function CreatorStreamCard({
   isResuming: boolean;
   isCancelling: boolean;
   onClick: () => void;
+  onHide: (id: string) => void;
 }) {
   const { stream, claimable, remaining, progress, timeRemaining, isLoading } = useStream(streamId);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -543,6 +619,7 @@ function CreatorStreamCard({
   const displayStatus = isFinished && status === 0 ? 2 : status;
   const progressPercent = progress ? Number(progress) / 100 : 0;
   const perUnlock = getPerUnlockAmount(stream.totalAmount, stream.duration, stream.interval);
+  const canDismiss = displayStatus === 2 || displayStatus === 3;
 
   return (
     <Card className="cursor-pointer hover:border-primary/50 transition-colors">
@@ -568,6 +645,19 @@ function CreatorStreamCard({
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
+            {canDismiss && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onHide(streamId.toString());
+                  toast.success("Stream hidden from list");
+                }}
+                className="text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg p-1.5 transition-colors"
+                title="Dismiss stream"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
             <img src={USDC_LOGO} alt="USDC" className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-contain" />
             <span className="font-mono-display text-base sm:text-lg text-foreground">
               {formatUSDC(stream.totalAmount)}
