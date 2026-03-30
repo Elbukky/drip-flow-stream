@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { AppHeader, AppFooter } from "@/components/AppLayout";
 import { useGamifiedSavings } from "@/hooks/useGamifiedSavings";
-import { formatUSDCValue, MIN_LOCKED_FOR_XP, MIN_LOCKED_MULT, STREAK_RECOVERY_FEE, FREQUENCY_LABELS, FREQUENCY_SECONDS } from "@/lib/gamified-savings";
-import type { UnlockFrequency } from "@/lib/gamified-savings";
+import { formatUSDCValue, MIN_LOCKED_FOR_XP, MIN_LOCKED_MULT, STREAK_RECOVERY_FEE } from "@/lib/gamified-savings";
 import {
   Shield,
   Star,
@@ -20,6 +19,10 @@ import {
   AlertTriangle,
   Loader2,
   Flame,
+  Trophy,
+  Target,
+  Sparkles,
+  CalendarDays,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -37,14 +40,14 @@ const NAV_TABS = [
 function PageTabs() {
   const location = useLocation();
   return (
-    <div className="flex items-center gap-6 border-b border-border mb-6">
+    <div className="flex items-center gap-6 border-b border-border mb-6 overflow-x-auto">
       {NAV_TABS.map((tab) => {
         const isActive = location.pathname === tab.to;
         return (
           <Link
             key={tab.to}
             to={tab.to}
-            className={`pb-3 text-xs font-bold tracking-[0.15em] uppercase transition-colors ${
+            className={`pb-3 text-xs font-bold tracking-[0.15em] uppercase transition-colors whitespace-nowrap ${
               isActive
                 ? "text-foreground border-b-2 border-primary"
                 : "text-muted-foreground hover:text-foreground"
@@ -59,7 +62,84 @@ function PageTabs() {
 }
 
 // ---------------------------------------------------------------------------
-// Fire Animation Component
+// Reusable CardHeader component (matching DripAllowance style)
+// ---------------------------------------------------------------------------
+
+function CardHeader({ icon: Icon, title, subtitle, className = "" }: {
+  icon: React.ElementType;
+  title: string;
+  subtitle: string;
+  className?: string;
+}) {
+  return (
+    <div className={`space-y-1 ${className}`}>
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+          <Icon className="w-4 h-4 text-primary" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground tracking-tight">{title}</h3>
+          <p className="text-[11px] text-muted-foreground leading-tight">{subtitle}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Staggered card animation wrapper
+// ---------------------------------------------------------------------------
+
+function StaggeredCard({ children, index, className = "" }: {
+  children: React.ReactNode;
+  index: number;
+  className?: string;
+}) {
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: index * 0.1, ease: "easeOut" }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Animated number component (counts up from 0)
+// ---------------------------------------------------------------------------
+
+function AnimatedNumber({ value, duration = 1.2 }: { value: number; duration?: number }) {
+  const [displayed, setDisplayed] = useState(0);
+  const startRef = useRef<number | null>(null);
+  const rafRef = useRef<number>(0);
+
+  useEffect(() => {
+    startRef.current = null;
+    const animate = (timestamp: number) => {
+      if (startRef.current === null) startRef.current = timestamp;
+      const elapsed = timestamp - startRef.current;
+      const progress = Math.min(elapsed / (duration * 1000), 1);
+      // ease out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayed(Math.floor(eased * value));
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(animate);
+      } else {
+        setDisplayed(value);
+      }
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [value, duration]);
+
+  return <>{displayed}</>;
+}
+
+// ---------------------------------------------------------------------------
+// Fire Animation Component (celebration on check-in)
 // ---------------------------------------------------------------------------
 
 function FireAnimation({ show }: { show: boolean }) {
@@ -71,8 +151,7 @@ function FireAnimation({ show }: { show: boolean }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      {/* Multiple flame particles rising */}
-      {Array.from({ length: 20 }).map((_, i) => (
+      {Array.from({ length: 24 }).map((_, i) => (
         <motion.div
           key={i}
           className="absolute w-3 h-3 rounded-full"
@@ -84,7 +163,7 @@ function FireAnimation({ show }: { show: boolean }) {
           initial={{ y: 0, opacity: 1, scale: 1 }}
           animate={{
             y: [0, -200 - Math.random() * 300],
-            x: [0, (Math.random() - 0.5) * 100],
+            x: [0, (Math.random() - 0.5) * 120],
             opacity: [1, 1, 0],
             scale: [1, 1.5, 0],
           }}
@@ -95,9 +174,7 @@ function FireAnimation({ show }: { show: boolean }) {
           }}
         />
       ))}
-      {/* Center flame icon */}
       <motion.div
-        className="text-6xl"
         initial={{ scale: 0, rotate: -10 }}
         animate={{ scale: [0, 1.5, 1], rotate: [-10, 10, 0] }}
         transition={{ duration: 0.6, ease: "backOut" }}
@@ -109,12 +186,35 @@ function FireAnimation({ show }: { show: boolean }) {
 }
 
 // ---------------------------------------------------------------------------
+// Skeleton loader for loading states
+// ---------------------------------------------------------------------------
+
+function SkeletonCard() {
+  return (
+    <div className="panel space-y-4 animate-pulse">
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-secondary" />
+        <div className="space-y-1.5">
+          <div className="w-24 h-3.5 bg-secondary rounded" />
+          <div className="w-40 h-2.5 bg-secondary/60 rounded" />
+        </div>
+      </div>
+      <div className="space-y-3">
+        <div className="w-full h-10 bg-secondary rounded" />
+        <div className="w-3/4 h-3 bg-secondary/60 rounded" />
+        <div className="w-1/2 h-3 bg-secondary/60 rounded" />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Custom error decoder for contract reverts
 // ---------------------------------------------------------------------------
 
 const CUSTOM_ERROR_MESSAGES: Record<string, string> = {
   AlreadyCheckedInToday: "You've already checked in today! Come back tomorrow.",
-  InsufficientLockedForXP: "You need at least 1 USDC still locked in your positions to check in.",
+  InsufficientLockedForXP: "You need at least 1 USDC still secured in your positions to check in.",
   NoActivePositions: "No active savings positions found. Create one first!",
   PositionNotActive: "This savings position is no longer active.",
   NothingToClaim: "Nothing available to claim yet.",
@@ -126,13 +226,11 @@ const CUSTOM_ERROR_MESSAGES: Record<string, string> = {
 function decodeContractError(error: unknown): string {
   const errObj = error as { message?: string; cause?: { message?: string; data?: { errorName?: string }; shortMessage?: string } };
 
-  // Try to extract error name from viem's structured error
   const causeData = errObj?.cause?.data;
   if (causeData?.errorName && CUSTOM_ERROR_MESSAGES[causeData.errorName]) {
     return CUSTOM_ERROR_MESSAGES[causeData.errorName];
   }
 
-  // Fallback: search in error message string for known error names
   const fullMessage = [
     errObj?.message ?? "",
     errObj?.cause?.message ?? "",
@@ -145,86 +243,16 @@ function decodeContractError(error: unknown): string {
     }
   }
 
-  // Check for user rejection
   if (fullMessage.includes("User rejected") || fullMessage.includes("user rejected") || fullMessage.includes("denied")) {
     return "Transaction was rejected in your wallet.";
   }
 
-  // Return the short message from viem if available, otherwise raw message
   return errObj?.cause?.shortMessage ?? errObj?.message ?? "Transaction failed. Please try again.";
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function getMilestone(streak: number) {
-  if (streak < 1)
-    return {
-      title: "First Check-In",
-      description: "Complete your first daily check-in",
-      current: 0,
-      target: 1,
-      motivational: "Start your journey today!",
-    };
-  if (streak < 15)
-    return {
-      title: "Silver Badge",
-      description: "Reach a 15-day streak",
-      current: streak,
-      target: 15,
-      motivational:
-        streak >= 10
-          ? "You're close - keep your streak going!"
-          : "Keep it up! Consistency is key.",
-    };
-  if (streak < 30)
-    return {
-      title: "Gold Badge",
-      description: "Reach a 30-day streak",
-      current: streak,
-      target: 30,
-      motivational:
-        streak >= 25
-          ? "Almost there - don't stop now!"
-          : "You're close - keep your streak going!",
-    };
-  return {
-    title: "All Milestones Complete!",
-    description: "You've earned all badges",
-    current: 30,
-    target: 30,
-    motivational: "Legendary discipline. Keep it up!",
-  };
-}
-
-function getNextMilestoneName(streak: number) {
-  if (streak < 7) return "7-Day Discipline";
-  if (streak < 15) return "15-Day Discipline";
-  if (streak < 30) return "30-Day Discipline";
-  return "All Complete";
-}
-
-function getNextMilestoneTarget(streak: number) {
-  if (streak < 7) return 7;
-  if (streak < 15) return 15;
-  if (streak < 30) return 30;
-  return 30;
-}
-
-function getMultiplierColor(multiplier: number): string {
-  if (multiplier >= 4) return "text-primary"; // orange/gold
-  if (multiplier >= 3) return "text-purple-400";
-  if (multiplier >= 2) return "text-blue-400";
-  return "text-muted-foreground";
-}
-
-function getMultiplierBg(multiplier: number): string {
-  if (multiplier >= 4) return "bg-primary/20 border-primary/40";
-  if (multiplier >= 3) return "bg-purple-400/20 border-purple-400/40";
-  if (multiplier >= 2) return "bg-blue-400/20 border-blue-400/40";
-  return "bg-secondary border-border";
-}
 
 function formatCountdown(seconds: number): string {
   if (seconds <= 0) return "00:00:00";
@@ -236,6 +264,55 @@ function formatCountdown(seconds: number): string {
     m.toString().padStart(2, "0"),
     s.toString().padStart(2, "0"),
   ].join(":");
+}
+
+// Multiplier tier definitions
+const MULTIPLIER_TIERS = [
+  { multiplier: 1, label: "1x", streakRequired: 0, description: "Base rate" },
+  { multiplier: 2, label: "2x", streakRequired: 7, description: "7-day streak" },
+  { multiplier: 3, label: "3x", streakRequired: 15, description: "15-day streak" },
+  { multiplier: 4, label: "4x", streakRequired: 30, description: "30-day streak" },
+];
+
+function getCurrentTierIndex(streak: number): number {
+  if (streak >= 30) return 3;
+  if (streak >= 15) return 2;
+  if (streak >= 7) return 1;
+  return 0;
+}
+
+function getNextMilestone(streak: number) {
+  if (streak < 7)
+    return {
+      title: "7-Day Discipline",
+      description: "Reach a 7-day streak to unlock 2x multiplier",
+      current: streak,
+      target: 7,
+      motivational: streak >= 5 ? "Almost there!" : "Build the habit!",
+    };
+  if (streak < 15)
+    return {
+      title: "Silver Badge",
+      description: "Reach a 15-day streak to earn your Silver NFT badge",
+      current: streak,
+      target: 15,
+      motivational: streak >= 12 ? "So close - don't stop now!" : "Great momentum!",
+    };
+  if (streak < 30)
+    return {
+      title: "Gold Badge",
+      description: "Reach a 30-day streak to earn the legendary Gold badge",
+      current: streak,
+      target: 30,
+      motivational: streak >= 25 ? "The finish line is in sight!" : "Incredible consistency!",
+    };
+  return {
+    title: "All Milestones Complete!",
+    description: "You've earned all badges and maximum multiplier",
+    current: 30,
+    target: 30,
+    motivational: "Legendary discipline. Keep it up!",
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -251,11 +328,18 @@ export default function FlowProgressPage() {
         <AppHeader />
         <div className="flex-1 max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full">
           <PageTabs />
-          <div className="panel flex items-center justify-center py-16">
-            <p className="text-muted-foreground">
+          <motion.div
+            className="panel flex flex-col items-center justify-center py-16 gap-4"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+              <Trophy className="w-8 h-8 text-primary/60" />
+            </div>
+            <p className="text-muted-foreground text-center">
               Connect your wallet to view your flow progress
             </p>
-          </div>
+          </motion.div>
         </div>
         <AppFooter />
       </div>
@@ -288,219 +372,122 @@ function FlowProgressContent() {
     [savings.positions]
   );
 
-  const milestone = useMemo(() => getMilestone(streak), [streak]);
-
-  const topMilestoneTarget = useMemo(
-    () => getNextMilestoneTarget(streak),
-    [streak]
-  );
-  const topMilestoneName = useMemo(
-    () => getNextMilestoneName(streak),
-    [streak]
-  );
+  const milestone = useMemo(() => getNextMilestone(streak), [streak]);
 
   if (savings.isLoading) {
     return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <SkeletonCard />
+          <SkeletonCard />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {/* SECTION 1: YOUR FLOW PROGRESS */}
-      <FlowProgressStats
-        streak={streak}
-        activePositionCount={activePositionCount}
-        topMilestoneName={topMilestoneName}
-        topMilestoneTarget={topMilestoneTarget}
-      />
-
-      {/* SECTION 2: STREAK TRACKER */}
-      <StreakTrackerCard
-        streak={streak}
-        lastCheckIn={lastCheckIn}
-        topMilestoneTarget={topMilestoneTarget}
-        savings={savings}
-      />
-
-      {/* SECTION 3: NEXT MILESTONE */}
-      <NextMilestoneCard milestone={milestone} />
-
-      {/* SECTION 4: XP & MULTIPLIER */}
-      <XPMultiplierCard
-        totalXP={totalXP}
-        multiplier={multiplier}
-        streak={streak}
-        usedEmergency={usedEmergency}
-        totalLocked={savings.totalLocked}
-        hasActivePosition={activePositionCount > 0}
-      />
-
-      {/* SECTION 5: BADGES EARNED */}
-      <BadgesEarnedGrid
-        streak={streak}
-        totalXP={totalXP}
-        multiplier={multiplier}
-        usedEmergency={usedEmergency}
-        positions={savings.positions}
-        badges={savings.badges}
-      />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// SECTION 1: YOUR FLOW PROGRESS (2-stat row)
-// ---------------------------------------------------------------------------
-
-function FlowProgressStats({
-  streak,
-  activePositionCount,
-  topMilestoneName,
-  topMilestoneTarget,
-}: {
-  streak: number;
-  activePositionCount: number;
-  topMilestoneName: string;
-  topMilestoneTarget: number;
-}) {
-  const progress = Math.min(streak, topMilestoneTarget);
-  const pct =
-    topMilestoneTarget > 0 ? (progress / topMilestoneTarget) * 100 : 0;
-
-  return (
-    <div className="panel space-y-4">
-      {/* Section Header with Icon Badge */}
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-          <TrendingUp className="w-4 h-4 text-primary" />
-        </div>
-        <span className="label-micro">YOUR FLOW PROGRESS</span>
-      </div>
-
-      {/* 2-stat row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Stat 1: Control Streak - with gradient border */}
-        <div className="relative group">
-          <div className="absolute -inset-[1px] bg-gradient-to-b from-primary/20 to-transparent rounded-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          <div className="relative bg-secondary/50 border border-border p-4 rounded-sm text-center backdrop-blur-sm">
-            <div className="flex items-baseline justify-center gap-1">
-              {/* Animated Streak Counter with Glow */}
-              <motion.span
-                className="font-mono-display text-4xl text-foreground font-bold"
-                style={streak > 0 ? { textShadow: '0 0 20px rgba(255,107,0,0.5)', color: '#FF6B00' } : {}}
-                key={streak}
-                initial={{ scale: 1.3, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 200 }}
-              >
-                {streak}
-              </motion.span>
-              <span className="text-sm text-muted-foreground">Day</span>
-            </div>
-            <p className="label-micro mt-2">CONTROL STREAK</p>
-          </div>
-        </div>
-
-        {/* Stat 2: Active Streams - with gradient border */}
-        <div className="relative group">
-          <div className="absolute -inset-[1px] bg-gradient-to-b from-primary/20 to-transparent rounded-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          <div className="relative bg-secondary/50 border border-border p-4 rounded-sm text-center backdrop-blur-sm">
-            <span className="font-mono-display text-4xl text-foreground font-bold">
-              {activePositionCount}
-            </span>
-            <p className="label-micro mt-2">ACTIVE STREAMS</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Running</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Next milestone progress */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
-            Next milestone:{" "}
-            <span className="text-foreground font-bold">
-              {topMilestoneName}
-            </span>
-          </p>
-          <span className="font-mono-display text-xs text-muted-foreground">
-            {progress}/{topMilestoneTarget}
-          </span>
-        </div>
-        {/* Animated Progress Bar */}
-        <div className="w-full h-2 rounded-full bg-secondary overflow-hidden">
-          <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-primary to-orange-400"
-            initial={{ width: 0 }}
-            animate={{ width: `${Math.min(pct, 100)}%` }}
-            transition={{ duration: 1, ease: "easeOut" }}
+      {/* Row 1: Streak Tracker + Next Milestone */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <StaggeredCard index={0}>
+          <StreakTrackerCard
+            streak={streak}
+            lastCheckIn={lastCheckIn}
+            savings={savings}
+            totalXP={totalXP}
           />
-        </div>
+        </StaggeredCard>
+        <StaggeredCard index={1}>
+          <NextMilestoneCard milestone={milestone} streak={streak} />
+        </StaggeredCard>
+      </div>
+
+      {/* Row 2: XP Multiplier + Achievement Badges (side by side on desktop) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <StaggeredCard index={2}>
+          <XPMultiplierCard
+            totalXP={totalXP}
+            multiplier={multiplier}
+            streak={streak}
+            usedEmergency={usedEmergency}
+            totalLocked={savings.totalLocked}
+            hasActivePosition={activePositionCount > 0}
+          />
+        </StaggeredCard>
+        <StaggeredCard index={3}>
+          <BadgesEarnedCard
+            streak={streak}
+            totalXP={totalXP}
+            multiplier={multiplier}
+            usedEmergency={usedEmergency}
+            positions={savings.positions}
+            badges={savings.badges}
+          />
+        </StaggeredCard>
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// SECTION 2: STREAK TRACKER
+// STREAK TRACKER Card
 // ---------------------------------------------------------------------------
 
 function StreakTrackerCard({
   streak,
   lastCheckIn,
-  topMilestoneTarget,
   savings,
+  totalXP,
 }: {
   streak: number;
   lastCheckIn: number;
-  topMilestoneTarget: number;
   savings: ReturnType<typeof useGamifiedSavings>;
+  totalXP: bigint;
 }) {
   const [countdown, setCountdown] = useState("");
   const [canRecover, setCanRecover] = useState(false);
   const [showFire, setShowFire] = useState(false);
+  const [xpEarnedToday, setXpEarnedToday] = useState<number | null>(null);
+  const prevXPRef = useRef(totalXP);
 
-  // --- Compute canCheckIn from contract requirements ---
+  // Compute canCheckIn from contract requirements
   const hasActivePositions = savings.positions.some((p) => p.active);
   const hasMinLocked = savings.totalLocked >= MIN_LOCKED_FOR_XP;
   const lastCheckInDay = lastCheckIn > 0 ? Math.floor(lastCheckIn / 86400) : -1;
   const todayDay = Math.floor(Date.now() / 1000 / 86400);
-  const notCheckedInToday = lastCheckInDay !== todayDay;
-  const canCheckIn = hasActivePositions && hasMinLocked && notCheckedInToday && !savings.isPending && !savings.isConfirming;
+  const checkedInToday = lastCheckInDay === todayDay;
+  const canCheckIn = hasActivePositions && hasMinLocked && !checkedInToday && !savings.isPending && !savings.isConfirming;
 
-  // --- Determine the disabled reason for UI hint ---
+  // Disabled reason for UI hint
   const disabledReason = useMemo(() => {
     if (savings.isPending || savings.isConfirming) return "Transaction in progress...";
-    if (!hasActivePositions) return "Create a savings position first";
-    if (!notCheckedInToday) return "Already checked in today - come back tomorrow!";
-    if (!hasMinLocked) return "Need at least 1 USDC still locked in your positions";
+    if (!hasActivePositions) return "Create a savings position first on Drip Allowance";
+    if (checkedInToday) return null; // handled by button state
+    if (!hasMinLocked) return "You need at least 1 USDC still secured in your positions";
     return null;
-  }, [hasActivePositions, hasMinLocked, notCheckedInToday, savings.isPending, savings.isConfirming]);
+  }, [hasActivePositions, hasMinLocked, checkedInToday, savings.isPending, savings.isConfirming]);
 
   useEffect(() => {
     function update() {
       const now = Math.floor(Date.now() / 1000);
-      const nextCheckIn = lastCheckIn + 86400; // +24h
+      const nextCheckIn = lastCheckIn + 86400;
       const secRemaining = nextCheckIn - now;
 
       if (lastCheckIn === 0) {
-        // Never checked in - show "Ready" instead of 00:00:00
         setCanRecover(false);
         setCountdown("");
         return;
       }
 
       if (secRemaining > 0) {
-        // Still in cooldown
         setCanRecover(false);
         setCountdown(formatCountdown(secRemaining));
       } else {
-        // Cooldown expired - can check in
         const hoursSinceCheckIn = (now - lastCheckIn) / 3600;
-        // Recovery is possible if between 24-48h and streak was > 0
         if (hoursSinceCheckIn > 24 && hoursSinceCheckIn <= 48 && streak > 0) {
           setCanRecover(true);
         } else {
@@ -509,13 +496,12 @@ function StreakTrackerCard({
         setCountdown("00:00:00");
       }
     }
-
     update();
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
   }, [lastCheckIn, streak]);
 
-  // Watch for write errors and show toast with decoded custom error
+  // Watch for write errors
   useEffect(() => {
     if (savings.writeError) {
       const message = decodeContractError(savings.writeError);
@@ -523,39 +509,48 @@ function StreakTrackerCard({
     }
   }, [savings.writeError]);
 
-  // Refetch data when a transaction is confirmed + trigger fire animation
+  // On confirmed tx, trigger fire + show XP earned
   useEffect(() => {
     if (savings.isConfirmed) {
       toast.success("Check-in confirmed!");
       savings.refetchAll();
       setShowFire(true);
       setTimeout(() => setShowFire(false), 2500);
+
+      // Calculate XP earned (difference from before)
+      const diff = Number(totalXP - prevXPRef.current);
+      if (diff > 0) {
+        setXpEarnedToday(diff);
+      } else {
+        // Fallback: base XP for a check-in is 10 * multiplier
+        setXpEarnedToday(10);
+      }
+      prevXPRef.current = totalXP;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savings.isConfirmed]);
 
+  // Track XP changes
+  useEffect(() => {
+    prevXPRef.current = totalXP;
+  }, [totalXP]);
+
   const handleCheckIn = () => {
-    // Pre-validate: no active positions
     if (!hasActivePositions) {
-      toast.error("No active savings positions. Create a position first on the Drip Allowance page.");
+      toast.error("No active savings positions. Create one on the Drip Allowance page first.");
       return;
     }
-
-    // Pre-validate: already checked in today
-    if (!notCheckedInToday) {
-      toast.error("Already checked in today! Come back tomorrow.");
+    if (checkedInToday) {
+      // Do nothing - button is already showing "CHECKED IN TODAY"
       return;
     }
-
-    // Pre-validate: minimum locked balance
     if (!hasMinLocked) {
-      toast.error("Insufficient locked balance for check-in. You need at least 1 USDC still locked in your savings positions.");
+      toast.error("You need at least 1 USDC still secured in your savings positions to check in.");
       return;
     }
-
     try {
       savings.checkIn();
       toast.info("Confirm check-in transaction in your wallet...");
-      // Refetch data after check-in to update countdown and streak
       setTimeout(() => savings.refetchAll(), 2000);
     } catch (error) {
       const message = decodeContractError(error);
@@ -565,118 +560,251 @@ function StreakTrackerCard({
 
   const handleRecoverStreak = () => {
     savings.recoverStreak();
-    toast.info("Confirm streak recovery (0.01 USDC)...");
+    toast.info("Confirm streak recovery (costs 0.01 ETH)...");
   };
 
-  const TOTAL_DOTS = 30;
-  const progress = Math.min(streak, topMilestoneTarget);
+  // Generate streak calendar data for last 30 days
+  const calendarDays = useMemo(() => {
+    const days: { date: Date; dayNum: number; isToday: boolean; checkedIn: boolean }[] = [];
+    const now = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+      const dayNum = Math.floor(d.getTime() / 1000 / 86400);
+      const isToday = i === 0;
+      // We know the user's current streak and lastCheckIn. We can estimate:
+      // If streak >= (i+1) days ago and checked in today or recently, those days were check-in days
+      // Simple heuristic: the last `streak` consecutive days ending at lastCheckIn day were checked in
+      const lastDay = lastCheckIn > 0 ? Math.floor(lastCheckIn / 86400) : -1;
+      const checkedIn = lastDay >= 0 && dayNum <= lastDay && dayNum > lastDay - streak;
+      days.push({ date: d, dayNum, isToday, checkedIn });
+    }
+    return days;
+  }, [streak, lastCheckIn]);
 
   return (
-    <div className="panel space-y-4">
-      {/* Fire celebration animation */}
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+      {/* Fire celebration */}
       <AnimatePresence>
         <FireAnimation show={showFire} />
       </AnimatePresence>
 
-      {/* Section Header with Icon Badge */}
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Clock className="w-4 h-4 text-primary" />
-        </div>
-        <span className="label-micro">STREAK TRACKER</span>
-      </div>
+      <CardHeader
+        icon={Flame}
+        title="Streak Tracker"
+        subtitle="Check in daily to build your streak and earn XP"
+      />
 
-      {streak > 0 ? (
-        <p className="text-sm text-muted-foreground">
-          You've stayed within your allowance for{" "}
-          <span className="text-foreground font-bold">{streak} days</span>
-        </p>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          Start your streak by checking in!
-        </p>
-      )}
-
-      {/* Progress text */}
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">Progress</span>
-        <span className="font-mono-display text-xs text-muted-foreground">
-          {progress}/{topMilestoneTarget}
-        </span>
-      </div>
-
-      {/* Day indicator row - staggered entrance animation */}
-      <div className="flex flex-wrap gap-1.5">
-        {Array.from({ length: TOTAL_DOTS }).map((_, i) => (
-          <motion.div
-            key={i}
-            className={`w-3.5 h-3.5 rounded-full transition-colors duration-300 ${
-              i < streak
-                ? "bg-primary shadow-[0_0_8px_rgba(255,107,0,0.5)]"
-                : "border border-muted-foreground/30"
-            }`}
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: i * 0.03, duration: 0.3 }}
-          />
-        ))}
-      </div>
-
-      {/* Check-in button with pulse animation */}
-      <div className="space-y-3 pt-2">
-        <motion.button
-          onClick={handleCheckIn}
-          disabled={!canCheckIn}
-          className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 relative overflow-hidden"
-          animate={canCheckIn ? { boxShadow: ["0 0 0px rgba(255,107,0,0)", "0 0 20px rgba(255,107,0,0.5)", "0 0 0px rgba(255,107,0,0)"] } : {}}
-          transition={canCheckIn ? { duration: 2, repeat: Infinity } : {}}
-        >
-          {savings.isPending || savings.isConfirming ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Check className="w-4 h-4" />
+      {/* Big streak number with fire animation */}
+      <div className="flex items-center justify-center py-2">
+        <div className="relative">
+          {/* Fire glow behind the number */}
+          {streak > 0 && (
+            <motion.div
+              className="absolute inset-0 rounded-full"
+              style={{
+                background: "radial-gradient(circle, rgba(255,107,0,0.3) 0%, transparent 70%)",
+                filter: "blur(20px)",
+              }}
+              animate={{
+                scale: [1, 1.2, 1],
+                opacity: [0.5, 0.8, 0.5],
+              }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            />
           )}
-          CHECK IN
-        </motion.button>
+          <div className="relative flex items-baseline gap-2">
+            <motion.span
+              className="font-mono-display text-6xl sm:text-7xl font-bold"
+              style={streak > 0 ? {
+                background: "linear-gradient(135deg, #FF6B00, #FFD700)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                filter: "drop-shadow(0 0 20px rgba(255,107,0,0.5))",
+              } : { color: "var(--muted-foreground)" }}
+              key={streak}
+              initial={{ scale: 1.4, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 180, damping: 15 }}
+            >
+              <AnimatedNumber value={streak} duration={1} />
+            </motion.span>
+            <span className="text-lg text-muted-foreground font-medium">
+              {streak === 1 ? "day" : "days"}
+            </span>
+          </div>
+        </div>
+      </div>
 
-        {/* Disabled state reason */}
-        {disabledReason && (
-          <p className="text-center text-xs text-muted-foreground">
+      {/* XP earned today badge */}
+      <AnimatePresence>
+        {xpEarnedToday !== null && (
+          <motion.div
+            className="flex justify-center"
+            initial={{ opacity: 0, y: -10, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ type: "spring", stiffness: 200 }}
+          >
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/15 border border-primary/30">
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+              <span className="text-xs font-bold text-primary">
+                XP Earned Today: +<AnimatedNumber value={xpEarnedToday} duration={0.8} />
+              </span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Streak Calendar / Heatmap - last 30 days */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-[11px] text-muted-foreground font-medium">Last 30 days</span>
+        </div>
+        <div className="overflow-x-auto pb-1 -mx-1 px-1">
+          <div className="flex gap-1 min-w-max">
+            {calendarDays.map((day, i) => {
+              const dayLabel = day.date.getDate().toString();
+              return (
+                <motion.div
+                  key={i}
+                  className="flex flex-col items-center gap-0.5"
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.015, duration: 0.25 }}
+                >
+                  <div
+                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center text-[10px] font-mono-display font-medium transition-all duration-200 ${
+                      day.isToday
+                        ? day.checkedIn
+                          ? "bg-primary text-primary-foreground ring-2 ring-primary/50 shadow-[0_0_8px_rgba(255,107,0,0.4)]"
+                          : "bg-secondary ring-2 ring-primary/40 text-foreground"
+                        : day.checkedIn
+                        ? "bg-primary/80 text-primary-foreground"
+                        : "bg-secondary/50 text-muted-foreground/60"
+                    }`}
+                    title={day.date.toLocaleDateString()}
+                  >
+                    {dayLabel}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-sm bg-primary/80" />
+            <span>Checked in</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-sm bg-secondary/50" />
+            <span>Missed</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-sm bg-secondary ring-1 ring-primary/40" />
+            <span>Today</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Check-in button + countdown */}
+      <div className="space-y-3 pt-1">
+        {checkedInToday ? (
+          /* Already checked in - muted disabled button */
+          <button
+            disabled
+            className="w-full min-h-[44px] py-3 px-6 font-bold uppercase text-xs tracking-widest bg-secondary text-muted-foreground rounded-lg flex items-center justify-center gap-2 cursor-default"
+          >
+            <Check className="w-4 h-4" />
+            CHECKED IN TODAY
+          </button>
+        ) : (
+          /* Active check-in button with glow when eligible */
+          <motion.button
+            onClick={handleCheckIn}
+            disabled={!canCheckIn}
+            className={`w-full min-h-[44px] py-3 px-6 font-bold uppercase text-xs tracking-widest rounded-lg flex items-center justify-center gap-2 relative overflow-hidden transition-all duration-200 ${
+              canCheckIn
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "bg-secondary text-muted-foreground cursor-not-allowed"
+            }`}
+            animate={canCheckIn ? {
+              boxShadow: [
+                "0 0 0px rgba(255,107,0,0)",
+                "0 0 25px rgba(255,107,0,0.5)",
+                "0 0 0px rgba(255,107,0,0)",
+              ],
+            } : {}}
+            transition={canCheckIn ? { duration: 2, repeat: Infinity } : {}}
+            whileHover={canCheckIn ? { scale: 1.01 } : {}}
+            whileTap={canCheckIn ? { scale: 0.97 } : {}}
+          >
+            {canCheckIn && (
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                animate={{ x: ['-100%', '200%'] }}
+                transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+              />
+            )}
+            <span className="relative flex items-center gap-2">
+              {savings.isPending || savings.isConfirming ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Flame className="w-4 h-4" />
+              )}
+              CHECK IN
+            </span>
+          </motion.button>
+        )}
+
+        {/* Disabled reason */}
+        {disabledReason && !checkedInToday && (
+          <p className="text-center text-[11px] text-muted-foreground">
             {disabledReason}
           </p>
         )}
 
-        {/* Countdown */}
+        {/* Countdown timer */}
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
           <Clock className="w-3 h-3" />
           {countdown === "" ? (
             <span className="font-mono-display text-primary font-bold">
               Ready for first check-in!
             </span>
+          ) : checkedInToday ? (
+            <span>
+              Next check-in in:{" "}
+              <span className="font-mono-display text-foreground">{countdown}</span>
+            </span>
           ) : (
             <span>
-              Next check-in available in:{" "}
-              <span className="font-mono-display text-foreground">
-                {countdown}
-              </span>
+              Cooldown:{" "}
+              <span className="font-mono-display text-foreground">{countdown}</span>
             </span>
           )}
         </div>
 
         {/* Recover streak button */}
         {canRecover && (
-          <button
+          <motion.button
             onClick={handleRecoverStreak}
             disabled={savings.isPending}
-            className="w-full py-3 px-6 font-bold uppercase text-xs tracking-widest transition-colors duration-150 bg-yellow-600 hover:bg-yellow-500 text-black flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full min-h-[44px] py-3 px-6 font-bold uppercase text-xs tracking-widest transition-colors duration-150 bg-yellow-600 hover:bg-yellow-500 text-black rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
           >
             {savings.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <AlertTriangle className="w-4 h-4" />
             )}
-            RECOVER STREAK (0.01 USDC)
-          </button>
+            RECOVER STREAK (0.01 ETH)
+          </motion.button>
         )}
       </div>
     </div>
@@ -684,55 +812,113 @@ function StreakTrackerCard({
 }
 
 // ---------------------------------------------------------------------------
-// SECTION 3: NEXT MILESTONE
+// NEXT MILESTONE Card
 // ---------------------------------------------------------------------------
 
 function NextMilestoneCard({
   milestone,
+  streak,
 }: {
-  milestone: ReturnType<typeof getMilestone>;
+  milestone: ReturnType<typeof getNextMilestone>;
+  streak: number;
 }) {
-  const pct =
-    milestone.target > 0
-      ? (milestone.current / milestone.target) * 100
-      : 0;
+  const pct = milestone.target > 0 ? (milestone.current / milestone.target) * 100 : 0;
+
+  // Mini-milestones at 7, 15, 30
+  const milestones = [
+    { target: 7, label: "7d", name: "2x Multiplier", icon: Zap },
+    { target: 15, label: "15d", name: "Silver Badge", icon: Star },
+    { target: 30, label: "30d", name: "Gold Badge", icon: Crown },
+  ];
 
   return (
-    <div className="panel space-y-4">
-      {/* Section Header with Icon Badge */}
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Star className="w-4 h-4 text-primary" />
-        </div>
-        <span className="label-micro">NEXT MILESTONE</span>
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+      <CardHeader
+        icon={Target}
+        title="Next Milestone"
+        subtitle="Reach streak milestones to unlock multipliers"
+      />
+
+      {/* Current target */}
+      <div className="space-y-1">
+        <h4 className="font-semibold text-base text-foreground">{milestone.title}</h4>
+        <p className="text-[12px] text-muted-foreground">{milestone.description}</p>
       </div>
 
-      <div>
-        <h3 className="font-mono-display text-lg text-foreground font-bold">
-          {milestone.title}
-        </h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          {milestone.description}
-        </p>
-      </div>
-
-      {/* Animated Progress bar */}
+      {/* Animated progress bar */}
       <div className="space-y-2">
-        <div className="w-full h-2.5 rounded-full bg-secondary overflow-hidden">
+        <div className="w-full h-3 rounded-full bg-secondary overflow-hidden">
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-primary to-orange-400"
+            className="h-full rounded-full bg-gradient-to-r from-primary to-orange-400 relative"
             initial={{ width: 0 }}
             animate={{ width: `${Math.min(pct, 100)}%` }}
-            transition={{ duration: 1, ease: "easeOut" }}
-          />
+            transition={{ duration: 1.2, ease: "easeOut" }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
+          </motion.div>
         </div>
         <div className="flex items-center justify-between">
           <span className="font-mono-display text-xs text-muted-foreground">
             {milestone.current} / {milestone.target} days
           </span>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-[11px] text-primary font-medium italic">
             {milestone.motivational}
           </span>
+        </div>
+      </div>
+
+      {/* Milestone roadmap */}
+      <div className="space-y-2 pt-1">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+          Milestone Roadmap
+        </p>
+        <div className="space-y-2">
+          {milestones.map((m, i) => {
+            const Icon = m.icon;
+            const achieved = streak >= m.target;
+            return (
+              <motion.div
+                key={m.target}
+                className={`flex items-center gap-3 p-2.5 rounded-lg border transition-all duration-200 ${
+                  achieved
+                    ? "bg-primary/10 border-primary/30"
+                    : "bg-secondary/30 border-border"
+                }`}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 + i * 0.1, duration: 0.3 }}
+              >
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                  achieved ? "bg-primary/20" : "bg-secondary"
+                }`}>
+                  {achieved ? (
+                    <Check className="w-3.5 h-3.5 text-primary" />
+                  ) : (
+                    <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-semibold ${achieved ? "text-foreground" : "text-muted-foreground"}`}>
+                    {m.name}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">{m.label} streak required</p>
+                </div>
+                {achieved && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    <div className="px-2 py-0.5 rounded-full bg-primary/20 text-[9px] font-bold text-primary uppercase tracking-wider">
+                      Done
+                    </div>
+                  </motion.div>
+                )}
+              </motion.div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -740,7 +926,7 @@ function NextMilestoneCard({
 }
 
 // ---------------------------------------------------------------------------
-// SECTION 4: XP & MULTIPLIER
+// XP MULTIPLIER Card
 // ---------------------------------------------------------------------------
 
 function XPMultiplierCard({
@@ -758,9 +944,8 @@ function XPMultiplierCard({
   totalLocked: bigint;
   hasActivePosition: boolean;
 }) {
-  const multiplierColor = getMultiplierColor(multiplier);
-  const multiplierBg = getMultiplierBg(multiplier);
   const hasMinBalance = totalLocked >= MIN_LOCKED_MULT;
+  const currentTierIdx = getCurrentTierIndex(streak);
 
   const requirements = [
     {
@@ -768,119 +953,197 @@ function XPMultiplierCard({
       achieved: hasActivePosition,
     },
     {
-      label: "7-day streak = 2x",
+      label: "10+ USDC secured",
+      achieved: hasMinBalance,
+    },
+    {
+      label: "7-day streak (2x)",
       achieved: streak >= 7,
     },
     {
-      label: "15-day streak = 3x",
+      label: "15-day streak (3x)",
       achieved: streak >= 15,
     },
     {
-      label: "30-day streak = 4x",
+      label: "30-day streak (4x)",
       achieved: streak >= 30,
-    },
-    {
-      label: ">10 USDC locked balance",
-      achieved: hasMinBalance,
     },
   ];
 
   return (
-    <div className="panel space-y-5">
-      {/* Section Header with Icon Badge */}
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Zap className="w-4 h-4 text-primary" />
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+      <CardHeader
+        icon={Zap}
+        title="XP Multiplier"
+        subtitle="Your earning power based on streak and savings"
+      />
+
+      {/* Multiplier display with glow */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
+            Total XP Earned
+          </p>
+          <motion.p
+            className="font-mono-display text-2xl text-primary font-bold"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <AnimatedNumber value={Number(totalXP)} duration={1.2} />
+          </motion.p>
         </div>
-        <span className="label-micro">XP & MULTIPLIER</span>
+
+        <div className="relative">
+          {/* Pulsing glow behind multiplier */}
+          <motion.div
+            className="absolute inset-0 rounded-2xl"
+            style={{
+              background: multiplier >= 2
+                ? "radial-gradient(circle, rgba(255,107,0,0.25) 0%, transparent 70%)"
+                : "none",
+              filter: "blur(15px)",
+            }}
+            animate={multiplier >= 2 ? {
+              scale: [1, 1.3, 1],
+              opacity: [0.4, 0.7, 0.4],
+            } : {}}
+            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div
+            className={`relative px-5 py-3 rounded-2xl border ${
+              multiplier >= 4 ? "border-primary/50 bg-primary/15" :
+              multiplier >= 3 ? "border-primary/40 bg-primary/10" :
+              multiplier >= 2 ? "border-primary/30 bg-primary/8" :
+              "border-border bg-secondary"
+            }`}
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
+          >
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground text-center mb-0.5">
+              Multiplier
+            </p>
+            <span
+              className="font-mono-display text-4xl font-bold block text-center"
+              style={{
+                background: multiplier >= 2
+                  ? "linear-gradient(135deg, #FF6B00, #FFD700)"
+                  : "none",
+                WebkitBackgroundClip: multiplier >= 2 ? "text" : undefined,
+                WebkitTextFillColor: multiplier >= 2 ? "transparent" : undefined,
+                color: multiplier < 2 ? "var(--muted-foreground)" : undefined,
+                filter: multiplier >= 2 ? "drop-shadow(0 0 12px rgba(255,107,0,0.4))" : undefined,
+              }}
+            >
+              {multiplier}x
+            </span>
+          </motion.div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Left: XP + Multiplier display */}
-        <div className="space-y-4">
-          <div>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">
-              TOTAL XP
-            </p>
-            <p className="font-mono-display text-3xl text-primary font-bold">
-              {totalXP.toString()}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">
-              CURRENT MULTIPLIER
-            </p>
-            <div
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-sm border ${multiplierBg}`}
-            >
-              <TrendingUp className={`w-5 h-5 ${multiplierColor}`} />
-              <span
-                className={`font-mono-display text-3xl font-bold ${multiplierColor}`}
-              >
-                {multiplier}x
-              </span>
-            </div>
-          </div>
+      {/* Multiplier tier progress */}
+      <div className="space-y-2.5">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+          Tier Progress
+        </p>
+        <div className="flex items-center gap-1">
+          {MULTIPLIER_TIERS.map((tier, i) => {
+            const isActive = i <= currentTierIdx;
+            const isCurrent = i === currentTierIdx;
+            return (
+              <div key={tier.multiplier} className="flex-1 flex flex-col items-center gap-1">
+                <motion.div
+                  className={`w-full h-2 rounded-full ${
+                    isActive
+                      ? "bg-gradient-to-r from-primary to-orange-400"
+                      : "bg-secondary"
+                  }`}
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ duration: 0.6, delay: i * 0.15 }}
+                  style={{ originX: 0 }}
+                />
+                <span className={`text-[10px] font-mono-display font-bold ${
+                  isCurrent ? "text-primary" : isActive ? "text-foreground" : "text-muted-foreground/60"
+                }`}>
+                  {tier.label}
+                </span>
+              </div>
+            );
+          })}
         </div>
+      </div>
 
-        {/* Right: Requirements list */}
-        <div className="space-y-3">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            REQUIREMENTS
-          </p>
+      {/* Requirements checklist */}
+      <div className="space-y-2">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+          Requirements
+        </p>
+        <div className="space-y-1.5">
           {requirements.map((req, i) => (
-            <div key={i} className="flex items-center gap-2.5">
+            <motion.div
+              key={i}
+              className="flex items-center gap-2.5"
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 + i * 0.08, duration: 0.3 }}
+            >
               {req.achieved ? (
-                <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
+                <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
                   <Check className="w-3 h-3 text-primary" />
                 </div>
               ) : (
-                <div className="w-5 h-5 rounded-full bg-secondary flex items-center justify-center">
+                <div className="w-5 h-5 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
                   <X className="w-3 h-3 text-muted-foreground" />
                 </div>
               )}
-              <span
-                className={`text-sm ${
-                  req.achieved
-                    ? "text-foreground"
-                    : "text-muted-foreground"
-                }`}
-              >
+              <span className={`text-[12px] ${
+                req.achieved ? "text-foreground" : "text-muted-foreground"
+              }`}>
                 {req.label}
               </span>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
 
-      {/* Emergency info (softer - not permanent) */}
+      {/* Emergency warning (softer - not permanent) */}
       {usedEmergency && (
-        <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 p-3 rounded-sm">
-          <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0" />
-          <p className="text-sm text-yellow-500">
-            Emergency withdrawal used previously. Your streak was reset but you can rebuild it to regain your multiplier.
+        <motion.div
+          className="flex items-start gap-2.5 bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+        >
+          <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
+          <p className="text-[12px] text-yellow-500/90 leading-relaxed">
+            Emergency withdrawal used previously. Your streak resets but you can rebuild it to regain your multiplier.
           </p>
-        </div>
+        </motion.div>
       )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// SECTION 5: BADGES EARNED
+// ACHIEVEMENT BADGES Card
 // ---------------------------------------------------------------------------
 
 interface BadgeDef {
   title: string;
   description: string;
+  requirement: string;
   icon: typeof Shield;
   earned: boolean;
   tier?: 1 | 2 | 3;
+  tierLabel?: string;
   tokenId?: bigint;
 }
 
-function BadgesEarnedGrid({
+function BadgesEarnedCard({
   streak,
   totalXP,
   multiplier,
@@ -907,69 +1170,95 @@ function BadgesEarnedGrid({
       {
         title: "Bronze Badge",
         description: "Complete your first check-in",
+        requirement: "1 check-in",
         icon: Shield,
         earned: hasTier1,
         tier: 1 as const,
+        tierLabel: "Bronze",
         tokenId: badges.hasTier1 ? badges.tier1TokenId : undefined,
       },
       {
         title: "Silver Badge",
         description: "Reach a 15-day streak",
+        requirement: "15-day streak",
         icon: Star,
         earned: hasTier2,
         tier: 2 as const,
+        tierLabel: "Silver",
         tokenId: badges.hasTier2 ? badges.tier2TokenId : undefined,
       },
       {
         title: "Gold Badge",
         description: "Achieve a 30-day streak",
+        requirement: "30-day streak",
         icon: Crown,
         earned: hasTier3,
         tier: 3 as const,
+        tierLabel: "Gold",
         tokenId: badges.hasTier3 ? badges.tier3TokenId : undefined,
       },
       {
         title: "Saver",
         description: "Deposit your first savings",
+        requirement: "Create a position",
         icon: Coins,
         earned: hasSaver,
       },
       {
         title: "Diamond Hands",
         description: "Never use emergency withdrawal",
+        requirement: "No emergencies",
         icon: Diamond,
         earned: hasDiamond,
       },
       {
-        title: "Max Multiplier",
+        title: "Max Power",
         description: "Achieve 4x XP multiplier",
+        requirement: "4x multiplier",
         icon: Zap,
         earned: hasMaxMult,
       },
     ];
   }, [streak, totalXP, multiplier, usedEmergency, positions.length, badges]);
 
+  const earnedCount = badgeDefs.filter((b) => b.earned).length;
+
   return (
-    <div className="space-y-4">
-      {/* Section Header with Icon Badge */}
-      <div className="flex items-center gap-3 px-1">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Crown className="w-4 h-4 text-primary" />
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+      <div className="flex items-start justify-between">
+        <CardHeader
+          icon={Trophy}
+          title="Achievement Badges"
+          subtitle="Collectible NFT badges earned through consistency"
+        />
+        <div className="text-right flex-shrink-0 ml-2">
+          <span className="font-mono-display text-lg font-bold text-foreground">{earnedCount}</span>
+          <span className="text-xs text-muted-foreground">/{badgeDefs.length}</span>
         </div>
-        <span className="label-micro">BADGES EARNED</span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+      {/* Badge grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
         {badgeDefs.map((badge, i) => (
           <motion.div
             key={badge.title}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: i * 0.08 }}
+            initial={{ opacity: 0, rotateY: 90 }}
+            animate={{ opacity: 1, rotateY: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 + i * 0.08, ease: "easeOut" }}
           >
             <BadgeCard badge={badge} />
           </motion.div>
         ))}
+      </div>
+
+      {/* Permanent badge note */}
+      <div className="flex items-center gap-1.5 justify-center pt-1">
+        <Lock className="w-3 h-3 text-muted-foreground/60" />
+        <p className="text-[10px] text-muted-foreground/60 italic">
+          Once earned, badges are yours forever
+        </p>
       </div>
     </div>
   );
@@ -978,12 +1267,22 @@ function BadgesEarnedGrid({
 function BadgeCard({ badge }: { badge: BadgeDef }) {
   const Icon = badge.icon;
 
+  const tierColors: Record<string, string> = {
+    Bronze: "from-amber-700/30 to-amber-900/10 border-amber-700/30",
+    Silver: "from-gray-300/20 to-gray-500/10 border-gray-400/30",
+    Gold: "from-yellow-500/25 to-yellow-700/10 border-yellow-500/30",
+  };
+
+  const tierBg = badge.tierLabel && tierColors[badge.tierLabel]
+    ? tierColors[badge.tierLabel]
+    : badge.earned
+    ? "from-primary/15 to-primary/5 border-primary/20"
+    : "from-secondary to-secondary/50 border-border/50";
+
   return (
     <div
-      className={`relative overflow-hidden p-5 rounded-sm border transition-all duration-200 ${
-        badge.earned
-          ? "bg-[#1E1E1E] border-border"
-          : "bg-[#141414] border-border/50 opacity-60"
+      className={`relative overflow-hidden p-3.5 rounded-xl border bg-gradient-to-br transition-all duration-300 ${tierBg} ${
+        badge.earned ? "hover:border-primary/40" : "opacity-50"
       }`}
     >
       {/* Shimmer effect for earned badges */}
@@ -995,48 +1294,56 @@ function BadgeCard({ badge }: { badge: BadgeDef }) {
         />
       )}
 
-      <div className="relative flex flex-col items-center text-center space-y-3">
+      <div className="relative flex flex-col items-center text-center space-y-2">
+        {/* Tier label */}
+        {badge.tierLabel && (
+          <span className={`text-[9px] font-bold uppercase tracking-widest ${
+            badge.earned ? "text-primary" : "text-muted-foreground"
+          }`}>
+            {badge.tierLabel}
+          </span>
+        )}
+
         {/* Icon */}
-        <div
-          className={`w-10 h-10 rounded-full flex items-center justify-center ${
-            badge.earned
-              ? "bg-primary/20"
-              : "bg-secondary"
-          }`}
-        >
-          <Icon
-            className={`w-5 h-5 ${
-              badge.earned ? "text-primary" : "text-muted-foreground"
-            }`}
-          />
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+          badge.earned ? "bg-primary/20" : "bg-secondary/80"
+        }`}>
+          <Icon className={`w-5 h-5 ${
+            badge.earned ? "text-primary" : "text-muted-foreground/60"
+          }`} />
         </div>
 
         {/* Title */}
-        <h4 className="font-bold text-sm text-foreground">{badge.title}</h4>
-
-        {/* Description */}
-        <p className="text-[11px] text-muted-foreground leading-relaxed">
-          {badge.description}
-        </p>
+        <h4 className={`font-semibold text-[12px] leading-tight ${
+          badge.earned ? "text-foreground" : "text-muted-foreground"
+        }`}>
+          {badge.title}
+        </h4>
 
         {/* Status */}
         {badge.earned ? (
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
-              EARNED
-            </span>
+          <div className="space-y-0.5">
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/20">
+              <Check className="w-2.5 h-2.5 text-primary" />
+              <span className="text-[9px] font-bold uppercase tracking-widest text-primary">
+                Earned
+              </span>
+            </div>
             {badge.tier && badge.tokenId !== undefined && badge.tokenId > 0n && (
               <p className="text-[9px] text-muted-foreground font-mono-display">
-                Token #{badge.tokenId.toString()}
+                NFT #{badge.tokenId.toString()}
               </p>
             )}
           </div>
         ) : (
-          <div className="flex items-center gap-1">
-            <Lock className="w-3 h-3 text-muted-foreground" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              LOCKED
-            </span>
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1 justify-center">
+              <Lock className="w-2.5 h-2.5 text-muted-foreground/60" />
+              <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                Not Earned
+              </span>
+            </div>
+            <p className="text-[9px] text-muted-foreground/50">{badge.requirement}</p>
           </div>
         )}
       </div>

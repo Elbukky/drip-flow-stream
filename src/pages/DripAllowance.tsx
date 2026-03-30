@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAccount } from "wagmi";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,7 +8,6 @@ import { formatUSDCValue, EMERGENCY_FEE_BPS, FREQUENCY_LABELS, FREQUENCY_SECONDS
 import type { Position, UnlockFrequency } from "@/lib/gamified-savings";
 import { parseEther } from "viem";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -27,6 +26,10 @@ import {
   Shield,
   Zap,
   Loader2,
+  PiggyBank,
+  Activity,
+  BarChart3,
+  Wallet,
 } from "lucide-react";
 import {
   AreaChart,
@@ -35,12 +38,98 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts";
 import { useTxActivity } from "@/hooks/useTxActivity";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
-// Navigation tabs (shared across Streams / Allowance / Progress)
+// Stagger animation variants
+// ---------------------------------------------------------------------------
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: i * 0.1, duration: 0.5, ease: "easeOut" },
+  }),
+};
+
+// ---------------------------------------------------------------------------
+// CountUp animation component
+// ---------------------------------------------------------------------------
+
+function CountUpValue({ value, prefix = "$", className = "" }: { value: string; prefix?: string; className?: string }) {
+  const [displayed, setDisplayed] = useState("0.00");
+  const targetRef = useRef(value);
+  const hasAnimated = useRef(false);
+
+  useEffect(() => {
+    targetRef.current = value;
+    if (hasAnimated.current) {
+      setDisplayed(value);
+      return;
+    }
+    hasAnimated.current = true;
+    const target = parseFloat(value.replace(/,/g, ""));
+    if (isNaN(target) || target === 0) {
+      setDisplayed(value);
+      return;
+    }
+    const duration = 800;
+    const steps = 30;
+    const stepTime = duration / steps;
+    let step = 0;
+    const interval = setInterval(() => {
+      step++;
+      const progress = step / steps;
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = target * eased;
+      setDisplayed(current.toFixed(2));
+      if (step >= steps) {
+        clearInterval(interval);
+        setDisplayed(value);
+      }
+    }, stepTime);
+    return () => clearInterval(interval);
+  }, [value]);
+
+  return <span className={className}>{prefix}{displayed}</span>;
+}
+
+// ---------------------------------------------------------------------------
+// Compute per-position claimable client-side
+// ---------------------------------------------------------------------------
+
+function computePositionClaimable(p: Position): bigint {
+  const now = Math.floor(Date.now() / 1000);
+  const startSec = Number(p.startTime);
+  const freqSecs = FREQUENCY_SECONDS[(p.frequency ?? 0) as UnlockFrequency] || 86400;
+  const elapsed = now - startSec;
+  if (elapsed <= 0) return 0n;
+  const elapsedPeriods = Math.floor(elapsed / freqSecs);
+  if (elapsedPeriods <= 0) return 0n;
+
+  let totalReleased: bigint;
+  if (p.mode === 0) {
+    // Fixed mode: dailyAmount * periods, capped at totalDeposited
+    totalReleased = p.dailyAmount * BigInt(elapsedPeriods);
+    if (totalReleased > p.totalDeposited) totalReleased = p.totalDeposited;
+  } else {
+    // Percentage mode: totalDeposited * (1 - (1 - bps/10000)^periods)
+    const r = p.percentBps / 10000;
+    const remaining = Math.pow(1 - r, elapsedPeriods);
+    const deposited = Number(p.totalDeposited);
+    totalReleased = BigInt(Math.floor(deposited * (1 - remaining)));
+    if (totalReleased > p.totalDeposited) totalReleased = p.totalDeposited;
+  }
+  const claimable = totalReleased - p.claimed;
+  return claimable > 0n ? claimable : 0n;
+}
+
+// ---------------------------------------------------------------------------
+// Navigation tabs
 // ---------------------------------------------------------------------------
 
 const NAV_TABS = [
@@ -52,14 +141,14 @@ const NAV_TABS = [
 function PageTabs() {
   const location = useLocation();
   return (
-    <div className="flex items-center gap-6 border-b border-border mb-6">
+    <div className="flex items-center gap-4 sm:gap-6 border-b border-border mb-6 overflow-x-auto">
       {NAV_TABS.map((tab) => {
         const isActive = location.pathname === tab.to;
         return (
           <Link
             key={tab.to}
             to={tab.to}
-            className={`pb-3 text-xs font-bold tracking-[0.15em] uppercase transition-colors ${
+            className={`pb-3 text-xs font-bold tracking-[0.15em] uppercase transition-colors whitespace-nowrap ${
               isActive
                 ? "text-foreground border-b-2 border-primary"
                 : "text-muted-foreground hover:text-foreground"
@@ -74,19 +163,44 @@ function PageTabs() {
 }
 
 // ---------------------------------------------------------------------------
-// Custom tooltip for the chart
+// Card header component for consistent styling
+// ---------------------------------------------------------------------------
+
+function CardHeader({ icon: Icon, title, subtitle, className = "" }: {
+  icon: React.ElementType;
+  title: string;
+  subtitle: string;
+  className?: string;
+}) {
+  return (
+    <div className={`space-y-1 ${className}`}>
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+          <Icon className="w-4 h-4 text-primary" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-foreground tracking-tight">{title}</h3>
+          <p className="text-[11px] text-muted-foreground leading-tight">{subtitle}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Custom chart tooltip
 // ---------------------------------------------------------------------------
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-card border border-border p-3 rounded-sm text-xs">
-      <p className="text-muted-foreground mb-1 font-mono-display">{label}</p>
+    <div className="bg-card/95 backdrop-blur-sm border border-border p-3 rounded-lg text-xs shadow-xl">
+      <p className="text-muted-foreground mb-1.5 font-semibold">{label}</p>
       {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       {payload.map((entry: any) => (
         <p key={entry.name} className="font-mono-display" style={{ color: entry.color }}>
-          {entry.name}: ${entry.value}
+          {entry.name}: ${Number(entry.value).toFixed(2)}
         </p>
       ))}
     </div>
@@ -140,9 +254,15 @@ export default function DripAllowancePage() {
         <AppHeader />
         <div className="flex-1 max-w-[1400px] mx-auto px-4 sm:px-6 py-8 w-full">
           <PageTabs />
-          <div className="panel flex items-center justify-center py-16">
-            <p className="text-muted-foreground">Connect your wallet to view your drip allowance</p>
-          </div>
+          <motion.div
+            className="panel flex flex-col items-center justify-center py-16 gap-4"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <Wallet className="w-10 h-10 text-muted-foreground/50" />
+            <p className="text-muted-foreground text-sm">Connect your wallet to view your drip allowance</p>
+          </motion.div>
         </div>
         <AppFooter />
       </div>
@@ -164,7 +284,6 @@ export default function DripAllowancePage() {
 function DripAllowanceContent() {
   const savings = useGamifiedSavings();
 
-  // Derived values
   const totalDeposited = useMemo(() => {
     return savings.positions.reduce((sum, p) => sum + p.totalDeposited, 0n);
   }, [savings.positions]);
@@ -175,22 +294,18 @@ function DripAllowanceContent() {
 
   const unlockPercent = useMemo(() => {
     if (totalDeposited === 0n) return 0;
-    // unlocked = totalClaimed + totalClaimable
     const unlocked = totalClaimed + savings.totalClaimable;
     return Number((unlocked * 10000n) / totalDeposited) / 100;
   }, [totalDeposited, totalClaimed, savings.totalClaimable]);
 
-  // Calculate daily unlock rate from active positions (frequency-aware)
   const dailyUnlockRate = useMemo(() => {
     return savings.positions
       .filter((p) => p.active)
       .reduce((sum, p) => {
         const freqSecs = FREQUENCY_SECONDS[(p.frequency ?? 0) as UnlockFrequency] || 86400;
         if (p.mode === 0) {
-          // FixedDaily: amount per period -> amount per day
           return sum + (p.dailyAmount * 86400n) / BigInt(freqSecs);
         } else {
-          // Percentage: percentBps per period -> per day
           const remaining = p.totalDeposited - p.claimed;
           const perPeriod = (remaining * BigInt(p.percentBps)) / 10000n;
           return sum + (perPeriod * 86400n) / BigInt(freqSecs);
@@ -198,9 +313,7 @@ function DripAllowanceContent() {
       }, 0n);
   }, [savings.positions]);
 
-  const yearlyRate = useMemo(() => {
-    return dailyUnlockRate * 365n;
-  }, [dailyUnlockRate]);
+  const yearlyRate = useMemo(() => dailyUnlockRate * 365n, [dailyUnlockRate]);
 
   const activePositions = useMemo(() => {
     return savings.positions
@@ -217,40 +330,48 @@ function DripAllowanceContent() {
   }
 
   return (
-    <div className="space-y-4">
-      {/* Row 1: Balance Overview + Allowance Stream */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <BalanceOverviewCard
-          totalDeposited={totalDeposited}
-          available={savings.totalClaimable}
-          locked={savings.totalLocked}
-          unlockPercent={unlockPercent}
-          yearlyRate={yearlyRate}
-        />
-        <AllowanceStreamCard
-          positions={activePositions}
-          savings={savings}
-        />
+    <div className="space-y-6">
+      {/* Row 1: Balance Overview + Manage Allowance */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div custom={0} variants={cardVariants} initial="hidden" animate="visible">
+          <BalanceOverviewCard
+            totalDeposited={totalDeposited}
+            available={savings.totalClaimable}
+            locked={savings.totalLocked}
+            unlockPercent={unlockPercent}
+            yearlyRate={yearlyRate}
+          />
+        </motion.div>
+        <motion.div custom={1} variants={cardVariants} initial="hidden" animate="visible">
+          <AllowanceStreamCard positions={activePositions} savings={savings} />
+        </motion.div>
       </div>
 
-      {/* Row 2: Spending Power + TX Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <SpendingPowerCard
-          totalClaimable={savings.totalClaimable}
-          positions={activePositions}
-          savings={savings}
-        />
-        <TxActivityCard />
+      {/* Row 2: Your Savings + Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div custom={2} variants={cardVariants} initial="hidden" animate="visible">
+          <SpendingPowerCard
+            totalClaimable={savings.totalClaimable}
+            positions={activePositions}
+            savings={savings}
+          />
+        </motion.div>
+        <motion.div custom={3} variants={cardVariants} initial="hidden" animate="visible">
+          <TxActivityCard />
+        </motion.div>
       </div>
 
-      {/* Row 3: Allowance Analytics (full width) */}
-      <AllowanceAnalyticsCard positions={activePositions} />
+      {/* Row 3: Savings Projection (full width) */}
+      <motion.div custom={4} variants={cardVariants} initial="hidden" animate="visible">
+        <SavingsProjectionCard positions={activePositions} />
+      </motion.div>
     </div>
   );
 }
 
+
 // ---------------------------------------------------------------------------
-// BALANCE_OVERVIEW Card
+// Balance Overview Card
 // ---------------------------------------------------------------------------
 
 function BalanceOverviewCard({
@@ -267,74 +388,69 @@ function BalanceOverviewCard({
   yearlyRate: bigint;
 }) {
   return (
-    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-4">
-      {/* Subtle gradient glow on hover */}
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Shield className="w-4 h-4 text-primary" />
-        </div>
-        <span className="label-micro">BALANCE_OVERVIEW</span>
-      </div>
+      <CardHeader icon={Shield} title="Balance Overview" subtitle="Your total savings at a glance" />
+
+      <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
       <div>
-        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">TOTAL BALANCE</p>
+        <p className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">Total Balance</p>
         <motion.p
-          className="stream-value text-foreground text-3xl"
+          className="font-mono-display text-foreground text-3xl sm:text-4xl font-bold"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          ${formatUSDCValue(totalDeposited)}
+          <CountUpValue value={formatUSDCValue(totalDeposited)} />
         </motion.p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">AVAILABLE</p>
+        <div className="bg-secondary/30 rounded-lg p-3">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">Available</p>
           <motion.p
-            className="font-mono-display text-lg text-foreground"
+            className="font-mono-display text-lg text-primary font-semibold"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            ${formatUSDCValue(available)}
+            <CountUpValue value={formatUSDCValue(available)} />
           </motion.p>
         </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-0.5">LOCKED</p>
+        <div className="bg-secondary/30 rounded-lg p-3">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-0.5">Secured</p>
           <motion.p
-            className="font-mono-display text-lg text-foreground"
+            className="font-mono-display text-lg text-foreground font-semibold"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            ${formatUSDCValue(locked)}
+            <CountUpValue value={formatUSDCValue(locked)} />
           </motion.p>
         </div>
       </div>
 
-      {/* Glowing progress bar */}
       <div className="space-y-2">
-        <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+        <div className="w-full h-2.5 bg-secondary rounded-full overflow-hidden">
           <motion.div
             className="h-full bg-gradient-to-r from-primary to-orange-400 rounded-full relative"
             initial={{ width: 0 }}
             animate={{ width: `${Math.min(unlockPercent, 100)}%` }}
-            transition={{ duration: 1.2, ease: "easeOut" }}
+            transition={{ duration: 1.2, ease: "easeOut", delay: 0.3 }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
           </motion.div>
         </div>
-        <div className="flex items-center justify-between text-[10px]">
-          <span className="text-muted-foreground">
-            <Unlock className="w-3 h-3 inline mr-1" />
-            UNLOCKED {unlockPercent.toFixed(1)}%
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-muted-foreground flex items-center gap-1">
+            <Unlock className="w-3 h-3" />
+            Released {unlockPercent.toFixed(1)}%
           </span>
-          <span className="text-muted-foreground">
-            <TrendingUp className="w-3 h-3 inline mr-1" />
-            Streaming +${formatUSDCValue(yearlyRate)}/year
+          <span className="text-muted-foreground flex items-center gap-1">
+            <TrendingUp className="w-3 h-3" />
+            +${formatUSDCValue(yearlyRate)}/year
           </span>
         </div>
       </div>
@@ -343,7 +459,7 @@ function BalanceOverviewCard({
 }
 
 // ---------------------------------------------------------------------------
-// ALLOWANCE_STREAM Card
+// Manage Allowance Card (Create / Top Up)
 // ---------------------------------------------------------------------------
 
 type AllowanceSubTab = "create" | "topup";
@@ -357,64 +473,58 @@ function AllowanceStreamCard({
   savings: ReturnType<typeof useGamifiedSavings>;
 }) {
   const [subTab, setSubTab] = useState<AllowanceSubTab>("create");
-
   return (
-    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-4">
-      {/* Subtle gradient glow on hover */}
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Zap className="w-4 h-4 text-primary" />
-        </div>
-        <span className="label-micro">ALLOWANCE_STREAM</span>
-      </div>
+      <CardHeader icon={Zap} title="Manage Allowance" subtitle="Create new savings or top up existing ones" />
 
-      {/* Sub-tab toggle */}
-      <div className="flex gap-0 border border-border">
+      <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+      <div className="flex gap-0 border border-border rounded-lg overflow-hidden">
         <button
           onClick={() => setSubTab("create")}
-          className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${
+          className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-widest transition-all duration-200 ${
             subTab === "create"
               ? "bg-primary text-primary-foreground"
               : "bg-secondary text-muted-foreground hover:text-foreground"
           }`}
         >
-          CREATE NEW
+          Create New
         </button>
         <button
           onClick={() => setSubTab("topup")}
-          className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest transition-colors ${
+          className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-widest transition-all duration-200 ${
             subTab === "topup"
               ? "bg-primary text-primary-foreground"
               : "bg-secondary text-muted-foreground hover:text-foreground"
           }`}
         >
-          TOP UP
+          Top Up
         </button>
       </div>
-
-      {subTab === "create" ? (
-        <CreateNewForm savings={savings} />
-      ) : (
-        <TopUpForm positions={positions} savings={savings} />
-      )}
+      <AnimatePresence mode="wait">
+        {subTab === "create" ? (
+          <motion.div key="create" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} transition={{ duration: 0.2 }}>
+            <CreateNewForm savings={savings} />
+          </motion.div>
+        ) : (
+          <motion.div key="topup" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
+            <TopUpForm positions={positions} savings={savings} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-function CreateNewForm({
-  savings,
-}: {
-  savings: ReturnType<typeof useGamifiedSavings>;
-}) {
+function CreateNewForm({ savings }: { savings: ReturnType<typeof useGamifiedSavings> }) {
   const [mode, setMode] = useState<DepositMode>("fixed");
   const [frequency, setFrequency] = useState<number>(0);
   const [dailyAmount, setDailyAmount] = useState("");
   const [durationDays, setDurationDays] = useState("");
   const [depositAmount, setDepositAmount] = useState("");
 
-  // Calculated duration for fixed daily mode
   const calcDuration = useMemo(() => {
     if (mode !== "fixed" || !dailyAmount || !depositAmount) return null;
     const daily = parseFloat(dailyAmount);
@@ -428,10 +538,8 @@ function CreateNewForm({
       toast.error("Enter a deposit amount");
       return;
     }
-
     try {
       const value = parseEther(depositAmount);
-
       if (mode === "fixed") {
         if (!dailyAmount || parseFloat(dailyAmount) <= 0) {
           toast.error("Enter an allowance amount");
@@ -456,18 +564,17 @@ function CreateNewForm({
   };
 
   return (
-    <div className="space-y-3">
-      {/* Unlock Frequency Selector */}
+    <div className="space-y-4">
       <div className="space-y-2">
-        <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Unlock Frequency</label>
-        <div className="grid grid-cols-4 gap-2">
+        <label className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">Unlock Frequency</label>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {([0, 1, 2, 3] as const).map((freq) => (
             <button
               key={freq}
               onClick={() => setFrequency(freq)}
-              className={`p-3 rounded-sm border text-center transition-all duration-200 ${
+              className={`p-3 rounded-lg border text-center transition-all duration-200 min-h-[44px] ${
                 frequency === freq
-                  ? "border-primary bg-primary/10 text-foreground shadow-[0_0_10px_rgba(255,107,0,0.2)]"
+                  ? "border-primary bg-primary/10 text-foreground shadow-[0_0_10px_rgba(255,107,0,0.15)]"
                   : "border-border bg-secondary/50 text-muted-foreground hover:border-primary/30 hover:text-foreground"
               }`}
             >
@@ -480,52 +587,47 @@ function CreateNewForm({
         </div>
       </div>
 
-      {/* Mode toggle */}
-      <div className="flex gap-0 border border-border">
+      <div className="flex gap-0 border border-border rounded-lg overflow-hidden">
         <button
           onClick={() => setMode("fixed")}
-          className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors ${
-            mode === "fixed"
-              ? "bg-muted text-foreground"
-              : "bg-card text-muted-foreground hover:text-foreground"
+          className={`flex-1 py-2 text-[11px] font-bold uppercase tracking-widest transition-colors ${
+            mode === "fixed" ? "bg-muted text-foreground" : "bg-card text-muted-foreground hover:text-foreground"
           }`}
         >
-          FIXED {FREQUENCY_LABELS[frequency as UnlockFrequency].toUpperCase()}
+          Fixed {FREQUENCY_LABELS[frequency as UnlockFrequency]}
         </button>
         <button
           onClick={() => setMode("percentage")}
-          className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-colors ${
-            mode === "percentage"
-              ? "bg-muted text-foreground"
-              : "bg-card text-muted-foreground hover:text-foreground"
+          className={`flex-1 py-2 text-[11px] font-bold uppercase tracking-widest transition-colors ${
+            mode === "percentage" ? "bg-muted text-foreground" : "bg-card text-muted-foreground hover:text-foreground"
           }`}
         >
-          PERCENTAGE
+          Percentage
         </button>
       </div>
 
       {mode === "fixed" ? (
         <div className="space-y-2">
-          <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            {FREQUENCY_LABELS[frequency as UnlockFrequency]} Allowance Amount (USDC)
+          <label className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
+            {FREQUENCY_LABELS[frequency as UnlockFrequency]} Allowance (USDC)
           </label>
           <Input
             type="number"
             placeholder="5.00"
             value={dailyAmount}
             onChange={(e) => setDailyAmount(e.target.value)}
-            className="bg-secondary border-border font-mono-display focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200"
+            className="bg-secondary border-border font-mono-display h-11 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200"
           />
           {calcDuration !== null && (
-            <p className="text-[10px] text-muted-foreground">
-              <Clock className="w-3 h-3 inline mr-1" />
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <Clock className="w-3 h-3" />
               Duration: ~{calcDuration} {FREQUENCY_LABELS[frequency as UnlockFrequency].toLowerCase()} periods
             </p>
           )}
         </div>
       ) : (
         <div className="space-y-2">
-          <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          <label className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
             Duration ({FREQUENCY_LABELS[frequency as UnlockFrequency].toLowerCase()} periods)
           </label>
           <Input
@@ -533,11 +635,11 @@ function CreateNewForm({
             placeholder="30"
             value={durationDays}
             onChange={(e) => setDurationDays(e.target.value)}
-            className="bg-secondary border-border font-mono-display focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200"
+            className="bg-secondary border-border font-mono-display h-11 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200"
           />
           {durationDays && parseInt(durationDays) > 0 && depositAmount && parseFloat(depositAmount) > 0 && (
-            <p className="text-[10px] text-muted-foreground">
-              <Clock className="w-3 h-3 inline mr-1" />
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <Clock className="w-3 h-3" />
               {FREQUENCY_LABELS[frequency as UnlockFrequency]} unlock: ~${(parseFloat(depositAmount) / parseInt(durationDays)).toFixed(4)}
             </p>
           )}
@@ -545,36 +647,31 @@ function CreateNewForm({
       )}
 
       <div className="space-y-1">
-        <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Deposit Amount (USDC)</label>
+        <label className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">Deposit Amount (USDC)</label>
         <Input
           type="number"
           placeholder="100.00"
           value={depositAmount}
           onChange={(e) => setDepositAmount(e.target.value)}
-          className="bg-secondary border-border font-mono-display focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200"
+          className="bg-secondary border-border font-mono-display h-11 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200"
         />
       </div>
 
       <motion.button
         onClick={handleLockFunds}
         disabled={savings.isPending}
-        className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 relative overflow-hidden"
+        className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 relative overflow-hidden min-h-[44px]"
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.99 }}
       >
-        {/* Shimmer effect */}
         <motion.div
           className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
-          animate={{ x: ['-100%', '200%'] }}
+          animate={{ x: ["-100%", "200%"] }}
           transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
         />
         <span className="relative flex items-center gap-2">
-          {savings.isPending ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Lock className="w-4 h-4" />
-          )}
-          LOCK FUNDS
+          {savings.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+          Lock Funds
         </span>
       </motion.button>
     </div>
@@ -598,19 +695,11 @@ function TopUpForm({
   }, [selectedId, positions]);
 
   const handleTopUp = () => {
-    if (!selectedId) {
-      toast.error("Select a position");
-      return;
-    }
-    if (!topUpAmount || parseFloat(topUpAmount) <= 0) {
-      toast.error("Enter a top-up amount");
-      return;
-    }
-
+    if (!selectedId) { toast.error("Select a position"); return; }
+    if (!topUpAmount || parseFloat(topUpAmount) <= 0) { toast.error("Enter a top-up amount"); return; }
     try {
       const value = parseEther(topUpAmount);
       const posId = parseInt(selectedId);
-
       if (selectedPosition?.mode === 0) {
         savings.topUpFixedDaily(posId, value);
       } else {
@@ -623,11 +712,11 @@ function TopUpForm({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="space-y-1">
-        <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Select Position</label>
+        <label className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">Select Position</label>
         <Select value={selectedId} onValueChange={setSelectedId}>
-          <SelectTrigger className="bg-secondary border-border font-mono-display focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200">
+          <SelectTrigger className="bg-secondary border-border font-mono-display h-11 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200">
             <SelectValue placeholder="Select position..." />
           </SelectTrigger>
           <SelectContent>
@@ -645,89 +734,104 @@ function TopUpForm({
       </div>
 
       {selectedPosition && (
-        <div className="bg-secondary p-3 space-y-1 text-xs">
+        <motion.div
+          className="bg-secondary/50 rounded-lg p-3.5 space-y-1.5 text-xs border border-border/50"
+          initial={{ opacity: 0, y: -5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+        >
           <div className="flex justify-between">
             <span className="text-muted-foreground">Mode</span>
-            <span className="font-mono-display">{selectedPosition.mode === 0 ? "Fixed" : "Percentage"}</span>
+            <span className="font-mono-display font-medium">{selectedPosition.mode === 0 ? "Fixed" : "Percentage"}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Frequency</span>
-            <span className="font-mono-display">{FREQUENCY_LABELS[(selectedPosition.frequency ?? 0) as UnlockFrequency]}</span>
+            <span className="font-mono-display font-medium">{FREQUENCY_LABELS[(selectedPosition.frequency ?? 0) as UnlockFrequency]}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">
-              {selectedPosition.mode === 0 ? "Period Amount" : "Period Unlock"}
-            </span>
-            <span className="font-mono-display">
+            <span className="text-muted-foreground">{selectedPosition.mode === 0 ? "Period Amount" : "Period Release"}</span>
+            <span className="font-mono-display font-medium">
               {selectedPosition.mode === 0
                 ? `$${formatUSDCValue(selectedPosition.dailyAmount)}`
-                : `~$${formatUSDCValue(
-                  (selectedPosition.totalDeposited - selectedPosition.claimed) * BigInt(selectedPosition.percentBps) / 10000n
-                )}/period`}
+                : `~$${formatUSDCValue((selectedPosition.totalDeposited - selectedPosition.claimed) * BigInt(selectedPosition.percentBps) / 10000n)}/period`}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Remaining</span>
-            <span className="font-mono-display">
-              ${formatUSDCValue(selectedPosition.totalDeposited - selectedPosition.claimed)}
-            </span>
+            <span className="text-muted-foreground">Secured</span>
+            <span className="font-mono-display font-medium">${formatUSDCValue(selectedPosition.totalDeposited - selectedPosition.claimed)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Next Unlock</span>
             <NextUnlockTimer position={selectedPosition} />
           </div>
-        </div>
+        </motion.div>
       )}
 
       <div className="space-y-1">
-        <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Top-Up Amount (USDC)</label>
+        <label className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">Top-Up Amount (USDC)</label>
         <Input
           type="number"
           placeholder="50.00"
           value={topUpAmount}
           onChange={(e) => setTopUpAmount(e.target.value)}
-          className="bg-secondary border-border font-mono-display focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200"
+          className="bg-secondary border-border font-mono-display h-11 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200"
         />
       </div>
 
       {selectedPosition?.mode === 1 && (
-        <div className="flex items-center gap-2">
-          <Checkbox
-            checked={recalculate}
-            onCheckedChange={(checked) => setRecalculate(checked === true)}
-          />
-          <label className="text-xs text-muted-foreground">Recalculate percentage?</label>
+        <div className="space-y-2">
+          <label className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">Top-Up Strategy</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              onClick={() => setRecalculate(false)}
+              className={`p-3 rounded-lg border text-left transition-all duration-200 ${
+                !recalculate
+                  ? "border-primary bg-primary/10 text-foreground shadow-[0_0_10px_rgba(255,107,0,0.15)]"
+                  : "border-border bg-secondary/50 text-muted-foreground hover:border-primary/30"
+              }`}
+            >
+              <p className="text-xs font-bold">Keep Current Schedule</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Your unlock rate stays the same. Extra funds extend the duration.</p>
+            </button>
+            <button
+              onClick={() => setRecalculate(true)}
+              className={`p-3 rounded-lg border text-left transition-all duration-200 ${
+                recalculate
+                  ? "border-primary bg-primary/10 text-foreground shadow-[0_0_10px_rgba(255,107,0,0.15)]"
+                  : "border-border bg-secondary/50 text-muted-foreground hover:border-primary/30"
+              }`}
+            >
+              <p className="text-xs font-bold">Recalculate Rate</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Adjusts the unlock rate to distribute evenly across remaining periods.</p>
+            </button>
+          </div>
         </div>
       )}
 
       <motion.button
         onClick={handleTopUp}
         disabled={savings.isPending}
-        className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 relative overflow-hidden"
+        className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 relative overflow-hidden min-h-[44px]"
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.99 }}
       >
-        {/* Shimmer effect */}
         <motion.div
           className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
-          animate={{ x: ['-100%', '200%'] }}
+          animate={{ x: ["-100%", "200%"] }}
           transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
         />
         <span className="relative flex items-center gap-2">
-          {savings.isPending ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Plus className="w-4 h-4" />
-          )}
-          TOP UP FUNDS
+          {savings.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+          Top Up Funds
         </span>
       </motion.button>
     </div>
   );
 }
 
+
 // ---------------------------------------------------------------------------
-// SPENDING_POWER Card
+// Your Savings Card (SpendingPower)
 // ---------------------------------------------------------------------------
 
 function SpendingPowerCard({
@@ -739,32 +843,20 @@ function SpendingPowerCard({
   positions: (Position & { id: number })[];
   savings: ReturnType<typeof useGamifiedSavings>;
 }) {
-  const [claimPosId, setClaimPosId] = useState<string>("");
   const [emergencyMode, setEmergencyMode] = useState(false);
   const [emergencyPosId, setEmergencyPosId] = useState<string>("");
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const handleClaim = () => {
-    if (!claimPosId) {
-      toast.error("Select a position to claim");
+  const handleClaim = (positionId: number) => {
+    const pos = positions.find((p) => p.id === positionId);
+    if (!pos) return;
+    const claimable = computePositionClaimable(pos);
+    if (claimable === 0n) {
+      toast.error("Nothing to claim yet");
       return;
     }
-    // Don't send tx if nothing to claim
-    if (totalClaimable === 0n) {
-      toast.error("Nothing available to claim yet.");
-      return;
-    }
-    savings.claim(parseInt(claimPosId));
+    savings.claim(positionId);
     toast.info("Confirm the claim transaction...");
-  };
-
-  const handleClaimAll = () => {
-    if (totalClaimable === 0n) {
-      toast.error("Nothing available to claim yet.");
-      return;
-    }
-    savings.claimAll();
-    toast.info("Confirm the claim-all transaction...");
   };
 
   const handleEmergencyClick = () => {
@@ -787,180 +879,199 @@ function SpendingPowerCard({
   };
 
   return (
-    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-4">
-      {/* Subtle gradient glow on hover */}
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Zap className="w-4 h-4 text-primary" />
-        </div>
-        <span className="label-micro">SPENDING_POWER</span>
-      </div>
+      <CardHeader icon={PiggyBank} title="Your Savings" subtitle="Manage positions and claim released funds" />
 
-      <div>
-        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Available to Spend</p>
+      <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+      <div className="bg-gradient-to-r from-primary/5 to-transparent rounded-lg p-4">
+        <p className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">Available to Claim</p>
         <motion.p
-          className="stream-value text-foreground text-3xl"
+          className="font-mono-display text-foreground text-3xl sm:text-4xl font-bold"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          ${formatUSDCValue(totalClaimable)}
+          <CountUpValue value={formatUSDCValue(totalClaimable)} />
         </motion.p>
       </div>
 
-      {/* Active Positions Overview */}
-      {positions.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Your Positions</p>
-          <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
-            {positions.map((p) => {
-              const remaining = p.totalDeposited - p.claimed;
+      {positions.length > 0 ? (
+        <div className="space-y-3">
+          <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">Active Positions</p>
+          <div className="space-y-2.5">
+            {positions.map((p, idx) => {
+              const claimable = computePositionClaimable(p);
+              const secured = p.totalDeposited - p.claimed - claimable;
+              const hasClaimable = claimable > 0n;
               const freqLabel = FREQUENCY_LABELS[(p.frequency ?? 0) as UnlockFrequency];
+
               return (
-                <div key={p.id} className="bg-secondary/50 border border-border p-2.5 rounded-sm flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-bold text-foreground">#{p.id}</span>
-                    <span className="text-[10px] text-muted-foreground ml-2">
-                      {p.mode === 0 ? "Fixed" : "%"} / {freqLabel}
-                    </span>
+                <motion.div
+                  key={p.id}
+                  initial={{ opacity: 0, x: -15 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.08, duration: 0.35 }}
+                  className="bg-secondary/30 border border-border/60 rounded-xl p-4 space-y-3 hover:border-primary/20 transition-colors duration-200"
+                >
+                  {/* Header row */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-foreground">#{p.id}</span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-secondary border border-border text-muted-foreground">
+                        {p.mode === 0 ? "Fixed" : "%"} / {freqLabel}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-muted-foreground">Next Unlock</p>
+                      <p className="text-xs"><NextUnlockTimer position={p} /></p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-mono-display text-xs text-foreground">${formatUSDCValue(remaining)}</p>
-                    <p className="text-[10px] text-primary">Next: <NextUnlockTimer position={p} /></p>
+
+                  {/* Stats row */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Released</p>
+                      <p className="font-mono-display text-sm text-primary font-semibold">${formatUSDCValue(claimable)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Secured</p>
+                      <p className="font-mono-display text-sm text-foreground font-semibold">${formatUSDCValue(secured > 0n ? secured : 0n)}</p>
+                    </div>
                   </div>
-                </div>
+
+                  {/* Claim button */}
+                  <motion.button
+                    onClick={() => handleClaim(p.id)}
+                    disabled={savings.isPending || !hasClaimable}
+                    className={`w-full py-2.5 px-4 rounded-lg font-bold text-xs uppercase tracking-widest transition-all duration-200 flex items-center justify-center gap-2 min-h-[44px] ${
+                      hasClaimable
+                        ? "bg-[#B45309] text-white hover:bg-[#A3480B] disabled:opacity-50"
+                        : "bg-[#78350F]/30 text-[#78350F] cursor-not-allowed border border-[#78350F]/20"
+                    }`}
+                    whileHover={hasClaimable ? { scale: 1.01 } : {}}
+                    whileTap={hasClaimable ? { scale: 0.99 } : {}}
+                    animate={hasClaimable ? {
+                      boxShadow: [
+                        "0 0 0px rgba(180, 83, 9, 0)",
+                        "0 0 12px rgba(180, 83, 9, 0.4)",
+                        "0 0 0px rgba(180, 83, 9, 0)",
+                      ],
+                    } : { boxShadow: "none" }}
+                    transition={hasClaimable ? { duration: 2, repeat: Infinity } : {}}
+                  >
+                    {savings.isPending ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    )}
+                    Claim ${formatUSDCValue(claimable)}
+                  </motion.button>
+                </motion.div>
               );
             })}
           </div>
         </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-10 gap-3">
+          <div className="w-14 h-14 rounded-2xl bg-secondary/50 flex items-center justify-center">
+            <PiggyBank className="w-7 h-7 text-muted-foreground/40" />
+          </div>
+          <p className="text-sm text-muted-foreground text-center">Start saving to see your positions here</p>
+          <p className="text-[11px] text-muted-foreground/60 text-center">Create a position using the Manage Allowance card</p>
+        </div>
       )}
 
-      {/* Claim controls */}
-      <div className="space-y-2">
-        <div className="flex gap-2">
-          <Select value={claimPosId} onValueChange={setClaimPosId}>
-            <SelectTrigger className="bg-secondary border-border font-mono-display flex-1 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200">
-              <SelectValue placeholder="Position..." />
-            </SelectTrigger>
-            <SelectContent>
-              {positions.map((p) => (
-                <SelectItem key={p.id} value={p.id.toString()}>
-                  #{p.id}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <motion.button
-            onClick={handleClaim}
-            disabled={savings.isPending || !claimPosId}
-            className="btn-secondary flex items-center gap-1 disabled:opacity-50 relative overflow-hidden"
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
-          >
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
-              animate={{ x: ['-100%', '200%'] }}
-              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-            />
-            <span className="relative flex items-center gap-1">
-              {savings.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <ArrowUpRight className="w-3 h-3" />}
-              CLAIM
-            </span>
-          </motion.button>
-        </div>
-        <motion.button
-          onClick={handleClaimAll}
-          disabled={savings.isPending || totalClaimable === 0n}
-          className={`btn-secondary w-full flex items-center justify-center gap-2 disabled:opacity-50 relative overflow-hidden ${
-            totalClaimable > 0n ? "ring-1 ring-primary/50" : ""
-          }`}
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
-          animate={totalClaimable > 0n ? {
-            boxShadow: ["0 0 0px rgba(255,107,0,0)", "0 0 15px rgba(255,107,0,0.4)", "0 0 0px rgba(255,107,0,0)"]
-          } : { boxShadow: "none" }}
-          transition={totalClaimable > 0n ? { duration: 2, repeat: Infinity } : {}}
-        >
-          <span className="relative flex items-center gap-2">
-            {savings.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUpRight className="w-4 h-4" />}
-            CLAIM ALL
-          </span>
-        </motion.button>
-      </div>
+      <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
-      {/* Emergency controls */}
+      {/* Emergency section */}
       {emergencyMode && (
-        <div className="space-y-2">
+        <motion.div
+          className="space-y-2"
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          transition={{ duration: 0.2 }}
+        >
           <Select value={emergencyPosId} onValueChange={setEmergencyPosId}>
-            <SelectTrigger className="bg-secondary border-border font-mono-display focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200">
+            <SelectTrigger className="bg-secondary border-border font-mono-display h-11 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all duration-200">
               <SelectValue placeholder="Select position..." />
             </SelectTrigger>
             <SelectContent>
               {positions.map((p) => (
                 <SelectItem key={p.id} value={p.id.toString()}>
-                  #{p.id} - ${formatUSDCValue(p.totalDeposited - p.claimed)} remaining
+                  #{p.id} - ${formatUSDCValue(p.totalDeposited - p.claimed)} secured
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <p className="text-[10px] text-destructive">
-            <AlertTriangle className="w-3 h-3 inline mr-1" />
+          <p className="text-[11px] text-destructive flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3" />
             Emergency fee: {EMERGENCY_FEE_BPS / 100}% of remaining balance
           </p>
-        </div>
+        </motion.div>
       )}
 
-      <button
+      <motion.button
         onClick={handleEmergencyClick}
-        disabled={savings.isPending}
-        className="w-full py-3 px-6 font-bold uppercase text-xs tracking-widest transition-all duration-150 bg-destructive hover:bg-destructive/90 text-destructive-foreground flex items-center justify-center gap-2 disabled:opacity-50"
-        style={{ boxShadow: "0 0 15px rgba(255, 51, 51, 0.3)" }}
+        disabled={savings.isPending || positions.length === 0}
+        className="w-full py-3 px-6 font-bold uppercase text-xs tracking-widest transition-all duration-150 bg-destructive/90 hover:bg-destructive text-destructive-foreground flex items-center justify-center gap-2 disabled:opacity-50 rounded-lg min-h-[44px]"
+        whileHover={{
+          x: [0, -2, 2, -2, 2, 0],
+          transition: { duration: 0.4 },
+        }}
       >
         <AlertTriangle className="w-4 h-4" />
-        EMERGENCY UNLOCK
-      </button>
+        Emergency Unlock
+      </motion.button>
 
       {emergencyMode && !showConfirm && (
         <button
           onClick={() => setEmergencyMode(false)}
-          className="w-full text-[10px] text-muted-foreground hover:text-foreground text-center py-1"
+          className="w-full text-[11px] text-muted-foreground hover:text-foreground text-center py-2 min-h-[44px]"
         >
           Cancel
         </button>
       )}
 
-      {/* Emergency confirmation modal */}
       <AnimatePresence>
         {showConfirm && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowConfirm(false)}>
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            onClick={() => setShowConfirm(false)}
+          >
             <motion.div
-              className="bg-card border border-destructive/30 p-6 max-w-sm w-full rounded-sm"
+              className="bg-card border border-destructive/30 p-6 max-w-sm w-full rounded-xl shadow-2xl"
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="font-mono-display text-lg text-destructive font-bold mb-3">
-                <AlertTriangle className="w-5 h-5 inline mr-2" />
-                EMERGENCY WITHDRAWAL
+              <h3 className="font-semibold text-lg text-destructive font-bold mb-3 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" />
+                Emergency Withdrawal
               </h3>
               <p className="text-sm text-muted-foreground mb-4">
-                This will withdraw position #{emergencyPosId} with a <strong className="text-destructive">{EMERGENCY_FEE_BPS / 100}% fee</strong> on the remaining balance. Your streak will reset to 0 but you can rebuild it. This cannot be undone.
+                This will withdraw position #{emergencyPosId} with a{" "}
+                <strong className="text-destructive">{EMERGENCY_FEE_BPS / 100}% fee</strong> on the
+                remaining balance. Your streak will reset to 0 but you can rebuild it. This cannot be undone.
               </p>
               <div className="flex gap-3">
                 <button
-                  onClick={() => { setShowConfirm(false); setEmergencyMode(false); }}
-                  className="btn-secondary flex-1"
+                  onClick={() => {
+                    setShowConfirm(false);
+                    setEmergencyMode(false);
+                  }}
+                  className="btn-secondary flex-1 min-h-[44px]"
                 >
-                  CANCEL
+                  Cancel
                 </button>
                 <button
                   onClick={confirmEmergency}
-                  className="flex-1 py-3 px-6 font-bold uppercase text-xs tracking-widest bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  className="flex-1 py-3 px-6 font-bold uppercase text-xs tracking-widest bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-lg min-h-[44px]"
                 >
-                  CONFIRM
+                  Confirm
                 </button>
               </div>
             </motion.div>
@@ -971,57 +1082,83 @@ function SpendingPowerCard({
   );
 }
 
+
 // ---------------------------------------------------------------------------
-// TX_ACTIVITY Card
+// Recent Activity Card (TX Activity)
 // ---------------------------------------------------------------------------
+
+const TX_TYPE_COLORS: Record<string, string> = {
+  "Deposit": "text-emerald-400",
+  "Top Up": "text-emerald-400",
+  "Claim": "text-primary",
+  "Emergency": "text-destructive",
+  "Check-In": "text-blue-400",
+  "Badge Earned": "text-yellow-400",
+};
+
+const TX_TYPE_ICONS: Record<string, React.ElementType> = {
+  "Deposit": Lock,
+  "Top Up": Plus,
+  "Claim": ArrowUpRight,
+  "Emergency": AlertTriangle,
+  "Check-In": Zap,
+  "Badge Earned": Shield,
+};
 
 function TxActivityCard() {
-  const { events, isLoading } = useTxActivity();
+  const { events, isLoading, error } = useTxActivity();
   return (
-    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-4">
-      {/* Subtle gradient glow on hover */}
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Clock className="w-4 h-4 text-primary" />
-        </div>
-        <span className="label-micro">TX_ACTIVITY</span>
-      </div>
+      <CardHeader icon={Activity} title="Recent Activity" subtitle="On-chain transaction history" />
 
-      <div className="space-y-0 max-h-[280px] overflow-y-auto">
+      <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+
+      <div className="space-y-0 max-h-[340px] overflow-y-auto">
         {isLoading ? (
-          <div className="flex justify-center py-8">
+          <div className="flex flex-col items-center justify-center py-10 gap-2">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            <p className="text-[11px] text-muted-foreground">Loading activity...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-10 gap-2">
+            <Activity className="w-8 h-8 text-muted-foreground/30" />
+            <p className="text-xs text-muted-foreground">{error}</p>
           </div>
         ) : events.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-8">No transactions yet</p>
+          <div className="flex flex-col items-center justify-center py-10 gap-2">
+            <Activity className="w-8 h-8 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground">No recent activity</p>
+            <p className="text-[11px] text-muted-foreground/60">Your transactions will appear here</p>
+          </div>
         ) : (
-          events.map((tx, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05, duration: 0.3 }}
-              className="flex items-center justify-between py-2.5 border-b border-border last:border-0"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground w-28">
-                  {tx.type}
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  {tx.time}
-                </span>
-              </div>
-              <span
-                className={`font-mono-display text-sm ${
-                  tx.positive ? "text-primary" : "text-destructive"
-                }`}
+          events.map((tx, i) => {
+            const IconComp = TX_TYPE_ICONS[tx.type] || Activity;
+            const colorClass = TX_TYPE_COLORS[tx.type] || "text-muted-foreground";
+            return (
+              <motion.div
+                key={`${tx.type}-${tx.timestamp}-${i}`}
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.04, duration: 0.3 }}
+                className="flex items-center justify-between py-3 border-b border-border/50 last:border-0 hover:bg-secondary/20 transition-colors px-1 rounded-sm"
               >
-                {tx.amount}
-              </span>
-            </motion.div>
-          ))
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg bg-secondary/80 flex items-center justify-center ${colorClass}`}>
+                    <IconComp className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <p className={`text-xs font-semibold ${colorClass}`}>{tx.type}</p>
+                    <p className="text-[10px] text-muted-foreground">{tx.time}</p>
+                  </div>
+                </div>
+                <span className={`font-mono-display text-sm font-medium ${tx.positive ? "text-foreground" : "text-destructive"}`}>
+                  {tx.amount}
+                </span>
+              </motion.div>
+            );
+          })
         )}
       </div>
     </div>
@@ -1029,152 +1166,234 @@ function TxActivityCard() {
 }
 
 // ---------------------------------------------------------------------------
-// ALLOWANCE_ANALYTICS Card
+// Savings Projection Card (formerly AllowanceAnalytics)
 // ---------------------------------------------------------------------------
 
-function AllowanceAnalyticsCard({ positions }: { positions: (Position & { id: number })[] }) {
-  const analyticsData = useMemo(() => {
-    const data: { time: string; unlocked: number; spent: number; allowance: number }[] = [];
-    if (positions.length === 0) return data;
+function SavingsProjectionCard({ positions }: { positions: (Position & { id: number })[] }) {
+  const { projectionData, nowLabel } = useMemo(() => {
+    if (positions.length === 0) {
+      return { projectionData: [], nowLabel: "" };
+    }
 
     const nowSec = Math.floor(Date.now() / 1000);
-    const points = 30;
 
-    for (let i = points - 1; i >= 0; i--) {
-      const t = new Date(Date.now() - i * 30 * 60 * 1000);
-      const hours = t.getHours().toString().padStart(2, "0");
-      const mins = t.getMinutes().toString().padStart(2, "0");
-      const label = hours + ":" + mins;
+    // Find the overall timeline: earliest start to latest projected end
+    let earliestStart = Infinity;
+    let latestEnd = 0;
+    const totalClaimed = positions.reduce((sum, p) => sum + Number(p.claimed) / 1e18, 0);
 
-      let totalUnlocked = 0;
+    for (const p of positions) {
+      const startSec = Number(p.startTime);
+      const freqSecs = FREQUENCY_SECONDS[(p.frequency ?? 0) as UnlockFrequency] || 86400;
+      const deposited = Number(p.totalDeposited) / 1e18;
+      const periodAmt = Number(p.dailyAmount) / 1e18;
+
+      if (startSec < earliestStart) earliestStart = startSec;
+
+      let endSec: number;
+      if (p.mode === 0 && periodAmt > 0) {
+        // Fixed: fully released after totalDeposited / dailyAmount periods
+        const totalPeriods = Math.ceil(deposited / periodAmt);
+        endSec = startSec + totalPeriods * freqSecs;
+      } else if (p.mode === 1) {
+        // Percentage: use durationDays periods
+        endSec = startSec + p.durationDays * freqSecs;
+      } else {
+        endSec = startSec + 365 * 86400; // fallback 1 year
+      }
+      if (endSec > latestEnd) latestEnd = endSec;
+    }
+
+    // Ensure now is visible and add some padding
+    if (latestEnd < nowSec + 86400) latestEnd = nowSec + 86400 * 7;
+    if (earliestStart > nowSec) earliestStart = nowSec;
+
+    const totalSpan = latestEnd - earliestStart;
+    const numPoints = 25;
+    const stepSec = totalSpan / (numPoints - 1);
+
+    const data: { label: string; Secured: number; Released: number; Claimed: number }[] = [];
+    let closestNowLabel = "";
+    let closestNowDist = Infinity;
+
+    for (let i = 0; i < numPoints; i++) {
+      const tSec = earliestStart + i * stepSec;
+      const date = new Date(tSec * 1000);
+
+      // Format label based on span
+      let label: string;
+      if (totalSpan < 86400 * 7) {
+        // Less than a week: show "Day X"
+        const dayNum = Math.round((tSec - earliestStart) / 86400) + 1;
+        label = `Day ${dayNum}`;
+      } else if (totalSpan < 86400 * 90) {
+        // Less than 3 months: show "Mar 29" style
+        label = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      } else {
+        // Longer: show "Mar '26" style
+        label = date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+      }
+
+      // Track closest label to "now" for the reference line
+      const dist = Math.abs(tSec - nowSec);
+      if (dist < closestNowDist) {
+        closestNowDist = dist;
+        closestNowLabel = label;
+      }
+
+      // Calculate cumulative released across all positions at time tSec
+      let totalReleased = 0;
       let totalDeposited = 0;
 
       for (const p of positions) {
         const startSec = Number(p.startTime);
         const freqSecs = FREQUENCY_SECONDS[(p.frequency ?? 0) as UnlockFrequency] || 86400;
-        const elapsedPeriods = Math.max(0, (nowSec - startSec) / freqSecs);
         const deposited = Number(p.totalDeposited) / 1e18;
-        const claimed = Number(p.claimed) / 1e18;
         totalDeposited += deposited;
+
+        const elapsedFromStart = tSec - startSec;
+        if (elapsedFromStart <= 0) continue;
+
+        const elapsedPeriods = Math.floor(elapsedFromStart / freqSecs);
 
         if (p.mode === 0) {
           const periodAmt = Number(p.dailyAmount) / 1e18;
-          const unlocked = Math.min(deposited, periodAmt * elapsedPeriods);
-          totalUnlocked += unlocked;
+          totalReleased += Math.min(deposited, periodAmt * elapsedPeriods);
         } else {
           const r = p.percentBps / 10000;
-          const unlocked = deposited * (1 - Math.pow(1 - r, elapsedPeriods));
-          totalUnlocked += Math.min(deposited, unlocked);
+          const released = deposited * (1 - Math.pow(1 - r, elapsedPeriods));
+          totalReleased += Math.min(deposited, released);
         }
       }
 
-      const elapsedFraction = (points - i) / points;
-      const unlocked = totalUnlocked * elapsedFraction;
-      const spent = unlocked * 0.3;
+      const secured = Math.max(0, totalDeposited - totalReleased);
 
       data.push({
-        time: label,
-        unlocked: +unlocked.toFixed(4),
-        spent: +spent.toFixed(4),
-        allowance: +totalDeposited.toFixed(4),
+        label,
+        Released: +totalReleased.toFixed(2),
+        Secured: +secured.toFixed(2),
+        Claimed: +totalClaimed.toFixed(2),
       });
     }
-    return data;
+
+    return { projectionData: data, nowLabel: closestNowLabel };
   }, [positions]);
+
   return (
-    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-4">
-      {/* Subtle gradient glow on hover */}
+    <div className="panel group hover:border-primary/30 transition-all duration-300 relative overflow-hidden space-y-5">
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-          <TrendingUp className="w-4 h-4 text-primary" />
-        </div>
-        <span className="label-micro">ALLOWANCE_ANALYTICS</span>
-      </div>
+      <CardHeader icon={BarChart3} title="Savings Projection" subtitle="How your savings release over time" />
 
-      <motion.div
-        className="h-[250px] w-full"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.2 }}
-      >
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={analyticsData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-            <defs>
-              <linearGradient id="gradUnlocked" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(24, 100%, 50%)" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="hsl(24, 100%, 50%)" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gradSpent" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#666666" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="#666666" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <XAxis
-              dataKey="time"
-              tick={{ fontSize: 10, fill: "#737373" }}
-              axisLine={false}
-              tickLine={false}
-              interval={5}
-            />
-            <YAxis
-              tick={{ fontSize: 10, fill: "#737373" }}
-              axisLine={false}
-              tickLine={false}
-              width={35}
-              tickFormatter={(v) => `$${v}`}
-            />
-            <Tooltip content={<ChartTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="allowance"
-              name="Allowance"
-              stroke="#ffffff"
-              strokeWidth={1.5}
-              fill="none"
-              dot={false}
-              activeDot={{ r: 4, fill: "#ffffff", stroke: "#ffffff" }}
-            />
-            <Area
-              type="monotone"
-              dataKey="unlocked"
-              name="Unlocked"
-              stroke="hsl(24, 100%, 50%)"
-              strokeWidth={2}
-              fill="url(#gradUnlocked)"
-              dot={false}
-              activeDot={{ r: 4, fill: "hsl(24, 100%, 50%)", stroke: "hsl(24, 100%, 50%)" }}
-            />
-            <Area
-              type="monotone"
-              dataKey="spent"
-              name="Spent"
-              stroke="#666666"
-              strokeWidth={1.5}
-              fill="url(#gradSpent)"
-              dot={false}
-              activeDot={{ r: 4, fill: "#666666", stroke: "#666666" }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </motion.div>
+      <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
-      {/* Legend */}
-      <div className="flex items-center gap-6 text-[10px]">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-0.5 bg-primary" />
-          <span className="text-muted-foreground">UNLOCKED</span>
+      {positions.length === 0 ? (
+        <div className="h-[260px] border-2 border-dashed border-border/50 rounded-xl flex flex-col items-center justify-center gap-3">
+          <BarChart3 className="w-10 h-10 text-muted-foreground/25" />
+          <p className="text-sm text-muted-foreground">Create a savings position to see your projection</p>
+          <p className="text-[11px] text-muted-foreground/50">Your release timeline will be visualized here</p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-0.5 bg-[#666666]" />
-          <span className="text-muted-foreground">SPENT</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-0.5 bg-white" />
-          <span className="text-muted-foreground">ALLOWANCE</span>
-        </div>
-      </div>
+      ) : (
+        <>
+          <motion.div
+            className="h-[260px] w-full"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={projectionData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="gradReleased" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(24, 100%, 50%)" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="hsl(24, 100%, 50%)" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 10, fill: "#737373" }}
+                  axisLine={false}
+                  tickLine={false}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "#737373" }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={45}
+                  tickFormatter={(v) => `$${v}`}
+                />
+                <Tooltip content={<ChartTooltip />} />
+                {nowLabel && (
+                  <ReferenceLine
+                    x={nowLabel}
+                    stroke="hsl(24, 100%, 50%)"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 4"
+                    label={{
+                      value: "NOW",
+                      position: "top",
+                      fill: "hsl(24, 100%, 50%)",
+                      fontSize: 10,
+                      fontWeight: 700,
+                    }}
+                  />
+                )}
+                <Area
+                  type="monotone"
+                  dataKey="Secured"
+                  name="Secured"
+                  stroke="#ffffff"
+                  strokeWidth={1.5}
+                  fill="none"
+                  dot={false}
+                  activeDot={{ r: 4, fill: "#ffffff", stroke: "#ffffff" }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="Released"
+                  name="Released"
+                  stroke="hsl(24, 100%, 50%)"
+                  strokeWidth={2}
+                  fill="url(#gradReleased)"
+                  dot={false}
+                  activeDot={{ r: 4, fill: "hsl(24, 100%, 50%)", stroke: "hsl(24, 100%, 50%)" }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="Claimed"
+                  name="Claimed"
+                  stroke="#22c55e"
+                  strokeWidth={1.5}
+                  fill="none"
+                  dot={false}
+                  strokeDasharray="5 3"
+                  activeDot={{ r: 4, fill: "#22c55e", stroke: "#22c55e" }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </motion.div>
+
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px]">
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-0.5 bg-white rounded-full" />
+              <span className="text-muted-foreground">Secured</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-0.5 bg-primary rounded-full" />
+              <span className="text-muted-foreground">Released</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-4 h-0.5 bg-emerald-500 rounded-full opacity-70" style={{ borderTop: "1px dashed" }} />
+              <span className="text-muted-foreground">Claimed</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 border border-primary/50 border-dashed rounded-sm" />
+              <span className="text-muted-foreground">Current Time</span>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

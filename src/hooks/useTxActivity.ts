@@ -17,10 +17,22 @@ export interface TxEvent {
 function formatTimeAgo(timestamp: number): string {
   const now = Math.floor(Date.now() / 1000);
   const diff = now - timestamp;
+  if (diff < 0) return "just now";
   if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} hr${Math.floor(diff / 3600) > 1 ? "s" : ""} ago`;
-  return `${Math.floor(diff / 86400)} day${Math.floor(diff / 86400) > 1 ? "s" : ""} ago`;
+  if (diff < 3600) {
+    const m = Math.floor(diff / 60);
+    return `${m} min${m > 1 ? "s" : ""} ago`;
+  }
+  if (diff < 86400) {
+    const h = Math.floor(diff / 3600);
+    return `${h} hr${h > 1 ? "s" : ""} ago`;
+  }
+  if (diff < 604800) {
+    const d = Math.floor(diff / 86400);
+    return `${d} day${d > 1 ? "s" : ""} ago`;
+  }
+  const w = Math.floor(diff / 604800);
+  return `${w} week${w > 1 ? "s" : ""} ago`;
 }
 
 export function useTxActivity() {
@@ -28,6 +40,7 @@ export function useTxActivity() {
   const publicClient = usePublicClient();
   const [events, setEvents] = useState<TxEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isConnected || !address || !publicClient) return;
@@ -36,11 +49,15 @@ export function useTxActivity() {
 
     async function fetchEvents() {
       setIsLoading(true);
+      setError(null);
       try {
         const currentBlock = await publicClient!.getBlockNumber();
+        // Look back ~50k blocks for history
         const fromBlock = currentBlock > 50000n ? currentBlock - 50000n : 0n;
 
-        const [depositLogs, topUpLogs, claimLogs, emergencyLogs] =
+        // Event names match the ABI in gamified-savings.ts:
+        // "Deposit", "TopUp", "Claim", "EmergencyWithdraw", "CheckIn", "BadgeMinted"
+        const [depositLogs, topUpLogs, claimLogs, emergencyLogs, checkInLogs, badgeLogs] =
           await Promise.all([
             publicClient!.getContractEvents({
               address: GAMIFIED_SAVINGS_ADDRESS as `0x${string}`,
@@ -48,45 +65,67 @@ export function useTxActivity() {
               eventName: "Deposit",
               args: { user: address as `0x${string}` },
               fromBlock,
-            }),
+            }).catch(() => []),
             publicClient!.getContractEvents({
               address: GAMIFIED_SAVINGS_ADDRESS as `0x${string}`,
               abi: GAMIFIED_SAVINGS_ABI,
               eventName: "TopUp",
               args: { user: address as `0x${string}` },
               fromBlock,
-            }),
+            }).catch(() => []),
             publicClient!.getContractEvents({
               address: GAMIFIED_SAVINGS_ADDRESS as `0x${string}`,
               abi: GAMIFIED_SAVINGS_ABI,
               eventName: "Claim",
               args: { user: address as `0x${string}` },
               fromBlock,
-            }),
+            }).catch(() => []),
             publicClient!.getContractEvents({
               address: GAMIFIED_SAVINGS_ADDRESS as `0x${string}`,
               abi: GAMIFIED_SAVINGS_ABI,
               eventName: "EmergencyWithdraw",
               args: { user: address as `0x${string}` },
               fromBlock,
-            }),
+            }).catch(() => []),
+            publicClient!.getContractEvents({
+              address: GAMIFIED_SAVINGS_ADDRESS as `0x${string}`,
+              abi: GAMIFIED_SAVINGS_ABI,
+              eventName: "CheckIn",
+              args: { user: address as `0x${string}` },
+              fromBlock,
+            }).catch(() => []),
+            publicClient!.getContractEvents({
+              address: GAMIFIED_SAVINGS_ADDRESS as `0x${string}`,
+              abi: GAMIFIED_SAVINGS_ABI,
+              eventName: "BadgeMinted",
+              args: { user: address as `0x${string}` },
+              fromBlock,
+            }).catch(() => []),
           ]);
 
+        // Cache block timestamps to avoid duplicate fetches
         const blockCache = new Map<bigint, number>();
 
         async function getBlockTimestamp(blockNumber: bigint): Promise<number> {
           if (blockCache.has(blockNumber)) return blockCache.get(blockNumber)!;
-          const block = await publicClient!.getBlock({ blockNumber });
-          const ts = Number(block.timestamp);
-          blockCache.set(blockNumber, ts);
-          return ts;
+          try {
+            const block = await publicClient!.getBlock({ blockNumber });
+            const ts = Number(block.timestamp);
+            blockCache.set(blockNumber, ts);
+            return ts;
+          } catch {
+            return Math.floor(Date.now() / 1000);
+          }
         }
 
+        // Combine all logs with their event type
         const allRaw = [
-          ...depositLogs.map((l) => ({ ...l, eventName: "Deposit" as const })),
-          ...topUpLogs.map((l) => ({ ...l, eventName: "TopUp" as const })),
-          ...claimLogs.map((l) => ({ ...l, eventName: "Claim" as const })),
-          ...emergencyLogs.map((l) => ({ ...l, eventName: "EmergencyWithdraw" as const })),
+          ...depositLogs.map((l) => ({ ...l, _eventType: "Deposit" as const })),
+          ...topUpLogs.map((l) => ({ ...l, _eventType: "TopUp" as const })),
+          ...claimLogs.map((l) => ({ ...l, _eventType: "Claim" as const })),
+          ...emergencyLogs.map((l) => ({ ...l, _eventType: "EmergencyWithdraw" as const })),
+          ...checkInLogs.map((l) => ({ ...l, _eventType: "CheckIn" as const })),
+          ...badgeLogs.map((l) => ({ ...l, _eventType: "BadgeMinted" as const })),
         ];
 
         if (allRaw.length === 0) {
@@ -94,17 +133,19 @@ export function useTxActivity() {
           return;
         }
 
-        const uniqueBlocks = [...new Set(allRaw.map((l) => l.blockNumber))];
+        // Pre-fetch all unique block timestamps in parallel
+        const uniqueBlocks = [...new Set(allRaw.map((l) => l.blockNumber).filter((b): b is bigint => b != null))];
         await Promise.all(uniqueBlocks.map((b) => getBlockTimestamp(b)));
 
+        // Parse each log into a TxEvent
         const parsed: TxEvent[] = allRaw.map((log) => {
           const args = log.args as Record<string, unknown>;
-          const blockTs = blockCache.get(log.blockNumber!) ?? 0;
+          const blockTs = log.blockNumber != null ? (blockCache.get(log.blockNumber) ?? 0) : 0;
 
-          switch (log.eventName) {
+          switch (log._eventType) {
             case "Deposit":
               return {
-                type: "DEPOSIT",
+                type: "Deposit",
                 time: formatTimeAgo(blockTs),
                 amount: `+$${formatUSDCValue(args.amount as bigint)}`,
                 positive: true,
@@ -112,7 +153,7 @@ export function useTxActivity() {
               };
             case "TopUp":
               return {
-                type: "TOP UP",
+                type: "Top Up",
                 time: formatTimeAgo(blockTs),
                 amount: `+$${formatUSDCValue(args.amount as bigint)}`,
                 positive: true,
@@ -120,7 +161,7 @@ export function useTxActivity() {
               };
             case "Claim":
               return {
-                type: "CLAIM",
+                type: "Claim",
                 time: formatTimeAgo(blockTs),
                 amount: `+$${formatUSDCValue(args.amount as bigint)}`,
                 positive: true,
@@ -128,28 +169,48 @@ export function useTxActivity() {
               };
             case "EmergencyWithdraw":
               return {
-                type: "EMERGENCY",
+                type: "Emergency",
                 time: formatTimeAgo(blockTs),
-                amount: `+$${formatUSDCValue(args.amountAfterFee as bigint)}`,
+                amount: `-$${formatUSDCValue(args.fee as bigint)} fee`,
                 positive: false,
+                timestamp: blockTs,
+              };
+            case "CheckIn":
+              return {
+                type: "Check-In",
+                time: formatTimeAgo(blockTs),
+                amount: `+${args.xpEarned ? formatUSDCValue(args.xpEarned as bigint) : "0"} XP`,
+                positive: true,
+                timestamp: blockTs,
+              };
+            case "BadgeMinted":
+              return {
+                type: "Badge Earned",
+                time: formatTimeAgo(blockTs),
+                amount: `Tier ${args.tier ?? "?"}`,
+                positive: true,
                 timestamp: blockTs,
               };
             default:
               return {
-                type: log.eventName,
+                type: "Unknown",
                 time: formatTimeAgo(blockTs),
-                amount: "—",
+                amount: "--",
                 positive: true,
                 timestamp: blockTs,
               };
           }
         });
 
+        // Sort newest first
         parsed.sort((a, b) => b.timestamp - a.timestamp);
         if (!cancelled) setEvents(parsed.slice(0, 50));
       } catch (err) {
         console.error("Failed to fetch tx events:", err);
-        if (!cancelled) setEvents([]);
+        if (!cancelled) {
+          setEvents([]);
+          setError("Could not load activity");
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -163,5 +224,5 @@ export function useTxActivity() {
     };
   }, [address, isConnected, publicClient]);
 
-  return { events, isLoading };
+  return { events, isLoading, error };
 }
