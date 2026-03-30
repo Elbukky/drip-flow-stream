@@ -378,12 +378,12 @@ function FlowProgressContent() {
 
   if (savings.isLoading) {
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SkeletonCard />
           <SkeletonCard />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SkeletonCard />
           <SkeletonCard />
         </div>
@@ -392,9 +392,9 @@ function FlowProgressContent() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Row 1: Streak Tracker + Next Milestone */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <StaggeredCard index={0}>
           <StreakTrackerCard
             streak={streak}
@@ -410,7 +410,7 @@ function FlowProgressContent() {
       </div>
 
       {/* Row 2: XP Multiplier + Achievement Badges (side by side on desktop) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <StaggeredCard index={2}>
           <XPMultiplierCard
             totalXP={totalXP}
@@ -726,24 +726,23 @@ function StreakTrackerCard({
           <CalendarDays className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-[11px] text-muted-foreground font-medium">Last 30 days</span>
         </div>
-        <div className="overflow-x-auto pb-1 -mx-1 px-1">
-          <div className="flex gap-1 min-w-max">
+        <div className="grid grid-cols-6 gap-1.5">
             {calendarDays.map((day, i) => {
               const dayLabel = day.date.getDate().toString();
               return (
                 <motion.div
                   key={i}
-                  className="flex flex-col items-center gap-0.5"
+                  className="flex items-center justify-center"
                   initial={{ opacity: 0, scale: 0 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: i * 0.015, duration: 0.25 }}
                 >
                   <div
-                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-md flex items-center justify-center text-[10px] font-mono-display font-medium transition-all duration-200 ${
+                    className={`w-8 h-8 rounded-md flex items-center justify-center text-[10px] font-mono-display font-medium transition-all duration-200 ${
                       day.isToday
                         ? day.checkedIn
                           ? "bg-primary text-primary-foreground ring-2 ring-primary/50 shadow-[0_0_8px_rgba(255,107,0,0.4)]"
-                          : "bg-secondary ring-2 ring-primary/40 text-foreground"
+                          : "bg-secondary ring-2 ring-primary/40 text-foreground animate-pulse"
                         : day.checkedIn
                         ? "bg-primary/80 text-primary-foreground"
                         : "bg-secondary/50 text-muted-foreground/60"
@@ -755,7 +754,6 @@ function StreakTrackerCard({
                 </motion.div>
               );
             })}
-          </div>
         </div>
         <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
           <div className="flex items-center gap-1">
@@ -1066,43 +1064,32 @@ function XPMultiplierCard({
         <div className="relative">
           {/* Pulsing glow behind multiplier */}
           <motion.div
-            className="absolute inset-0 rounded-2xl"
+            className="absolute -inset-4 rounded-3xl"
             style={{
-              background: multiplier >= 2
-                ? "radial-gradient(circle, rgba(255,107,0,0.25) 0%, transparent 70%)"
-                : "none",
-              filter: "blur(15px)",
+              background: "radial-gradient(circle, rgba(245,158,11,0.4) 0%, rgba(245,158,11,0.15) 40%, transparent 70%)",
+              filter: "blur(20px)",
             }}
-            animate={multiplier >= 2 ? {
+            animate={{
               scale: [1, 1.3, 1],
-              opacity: [0.4, 0.7, 0.4],
-            } : {}}
-            transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+              opacity: [0.5, 0.9, 0.5],
+            }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
           />
           <motion.div
-            className={`relative px-5 py-3 rounded-2xl border ${
-              multiplier >= 4 ? "border-primary/50 bg-primary/15" :
-              multiplier >= 3 ? "border-primary/40 bg-primary/10" :
-              multiplier >= 2 ? "border-primary/30 bg-primary/8" :
-              "border-border bg-secondary"
-            }`}
+            className="relative px-6 py-4 rounded-2xl border border-amber-500/50 bg-amber-500/10 animate-multiplier-glow"
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
           >
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground text-center mb-0.5">
+            <p className="text-[10px] uppercase tracking-wide text-amber-400/80 text-center mb-1 font-bold">
               Multiplier
             </p>
             <span
-              className="font-mono-display text-4xl font-bold block text-center"
+              className="font-mono-display text-5xl sm:text-6xl font-bold block text-center"
               style={{
-                background: multiplier >= 2
-                  ? "linear-gradient(135deg, #FF6B00, #FFD700)"
-                  : "none",
-                WebkitBackgroundClip: multiplier >= 2 ? "text" : undefined,
-                WebkitTextFillColor: multiplier >= 2 ? "transparent" : undefined,
-                color: multiplier < 2 ? "var(--muted-foreground)" : undefined,
-                filter: multiplier >= 2 ? "drop-shadow(0 0 12px rgba(255,107,0,0.4))" : undefined,
+                color: "#F59E0B",
+                textShadow: "0 0 10px rgba(245,158,11,0.8), 0 0 20px rgba(245,158,11,0.4), 0 0 40px rgba(245,158,11,0.2)",
+                filter: "drop-shadow(0 0 15px rgba(245,158,11,0.6))",
               }}
             >
               {multiplier}x

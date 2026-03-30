@@ -132,3 +132,17 @@
     animation: shimmer 2s linear infinite;
   }
 }
+
+  @keyframes multiplier-glow {
+    0%, 100% {
+      box-shadow: 0 0 20px rgba(245,158,11,0.5), 0 0 40px rgba(245,158,11,0.3), 0 0 60px rgba(245,158,11,0.15);
+      text-shadow: 0 0 10px rgba(245,158,11,0.8);
+    }
+    50% {
+      box-shadow: 0 0 30px rgba(245,158,11,0.7), 0 0 60px rgba(245,158,11,0.45), 0 0 90px rgba(245,158,11,0.25);
+      text-shadow: 0 0 20px rgba(245,158,11,1);
+    }
+  }
+  .animate-multiplier-glow {
+    animation: multiplier-glow 2s ease-in-out infinite;
+  }
