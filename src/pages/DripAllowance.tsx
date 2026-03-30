@@ -333,7 +333,7 @@ function DripAllowanceContent() {
   return (
     <div className="space-y-4">
       {/* Row 1: Balance Overview + Manage Allowance */}
-      <div className="flex flex-col lg:flex-row gap-4">
+      <div className="flex flex-col lg:flex-row gap-4 items-start">
         <motion.div className="flex-1 min-w-0" custom={0} variants={cardVariants} initial="hidden" animate="visible">
           <BalanceOverviewCard
             totalDeposited={totalDeposited}
@@ -349,7 +349,7 @@ function DripAllowanceContent() {
       </div>
 
       {/* Row 2: Your Savings + Recent Activity */}
-      <div className="flex flex-col lg:flex-row gap-4">
+      <div className="flex flex-col lg:flex-row gap-4 items-start">
         <motion.div className="flex-1 min-w-0" custom={2} variants={cardVariants} initial="hidden" animate="visible">
           <SpendingPowerCard
             totalClaimable={savings.totalClaimable}
