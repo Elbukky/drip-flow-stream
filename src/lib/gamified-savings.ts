@@ -1,10 +1,10 @@
 // ============================================================================
 // GamifiedSavings Contract - ABI, Types, Constants & Helpers
-// Contract: 0x6e3fcFa4CD32df2B57041108f90dDFAe82B7ba62
+// Contract: 0xf2066620D9A0EfB1f5504222E9d569eBB83adcf0
 // Chain: Arc Testnet (5042002)
 // ============================================================================
 
-export const GAMIFIED_SAVINGS_ADDRESS = "0x6e3fcFa4CD32df2B57041108f90dDFAe82B7ba62";
+export const GAMIFIED_SAVINGS_ADDRESS = "0xf2066620D9A0EfB1f5504222E9d569eBB83adcf0";
 
 // ---------------------------------------------------------------------------
 // Types
